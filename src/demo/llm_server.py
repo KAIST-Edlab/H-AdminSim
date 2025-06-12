@@ -4,7 +4,6 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(os.path.dirname(__file__))), 'src'))
 import argparse
 from sconf import Config
-from pydantic import BaseModel
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -28,7 +27,7 @@ config = Config(args.config)
 client = GeminiClient(config.model) if 'gemini' in config.model.lower() else GPTClient(config.model)
 
 
-@app.post("/llm_response")
+@app.post('/llm_response')
 async def generate_response(request: PromptRequest):
     user_prompt = request.user_prompt.strip()
     system_prompt = request.system_prompt.strip() if request.system_prompt else None
@@ -38,11 +37,11 @@ async def generate_response(request: PromptRequest):
     )
         
     if not user_prompt:
-        raise HTTPException(status_code=400, detail="Prompt is empty")
+        raise HTTPException(status_code=400, detail='Prompt is empty')
     
-    return {"response": response}
+    return {'response': response}
 
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     uvicorn.run('llm_server:app', host=config.host, port=config.port, reload=args.is_develop)
