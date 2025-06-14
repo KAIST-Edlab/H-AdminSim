@@ -1,3 +1,6 @@
+# Base
+seed: 9999
+
 # FHIR server url
 fhir_url: http://localhost:8080/fhir
 
