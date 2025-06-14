@@ -1,2 +1,5 @@
-# Uvicorn
+# FHIR server url
 fhir_url: http://localhost:8080/fhir
+
+# Data configs
+data_path: ./data  #  Path of data. We can set it to individual JSON files or a directory containing multiple JSON files.
