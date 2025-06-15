@@ -21,11 +21,11 @@ class FHIRManager:
 
 
     def create(self, resource_type:str, resource_data:dict, headers=None):
-        _id = resource_data.get("id")
-        fhir_url = f"{self.fhir_url}/{resource_type}/{_id}"
+        _id = resource_data.get('id')
+        fhir_url = f'{self.fhir_url}/{resource_type}/{_id}'
         response = requests.put(
             fhir_url,
-            headers={"Content-Type": "application/fhir+json"} if headers is None else headers,
+            headers={'Content-Type': 'application/fhir+json'} if headers is None else headers,
             json=resource_data,
         )
 
@@ -34,10 +34,10 @@ class FHIRManager:
     
     
     def read(self, resource_type:str, id:str, headers=None):
-        fhir_url = f"{self.fhir_url}/{resource_type}/{id}"
+        fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.get(
             fhir_url,
-            headers={"Accept": "application/fhir+json"} if headers is None else headers,
+            headers={'Accept': 'application/fhir+json'} if headers is None else headers,
         )
 
         # Log and return the response
@@ -45,10 +45,10 @@ class FHIRManager:
     
 
     def update(self, resource_type:str, id:str, headers=None):
-        fhir_url = f"{self.fhir_url}/{resource_type}/{id}"
+        fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.put(
             fhir_url,
-            headers={"Content-Type": "application/fhir+json"} if headers is None else headers,
+            headers={'Content-Type': 'application/fhir+json'} if headers is None else headers,
         )
 
         # Log and return the response
@@ -56,7 +56,7 @@ class FHIRManager:
 
 
     def delete(self, resource_type:str, id:str):
-        fhir_url = f"{self.fhir_url}/{resource_type}/{id}"
+        fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.delete(
             fhir_url
         )
