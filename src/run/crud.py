@@ -34,8 +34,8 @@ def main(args):
     fhir_manager = FHIRManager(config)
     
     if args.mode == 'create':
-        is_file = os.path.isfile(config.data_path)
-        files = [config.data_path] if is_file else get_files(config.data_path, ext='json')
+        is_file = os.path.isfile(config.create_data_path)
+        files = [config.create_data_path] if is_file else get_files(config.create_data_path, ext='json')
         
         for file in files:
             resource_data = json_load(file)
@@ -46,10 +46,29 @@ def main(args):
             response = fhir_manager.create(resource_type, resource_data)
             log(f"Created {resource_type} with ID {response.get('id')}")
 
+    elif args.mode == 'read':
+        if not args.id or not args.resource_type:
+            log("ID and resource type are required for read operation", level='error')
+            raise ValueError('ID and resource type are required for read operation')
+    
+        response = fhir_manager.read(args.resource_type, args.id)
+        log(f"Read {args.resource_type} with ID {args.id}")
+
+    elif args.mode == 'update':
+        if not args.id:
+            log("ID is required for update operation", level='error')
+            raise ValueError('ID is required for update operation')
+
+        resource_data = json_load(args.update_data_path) if args.update_data_path else {}
+        resource_type = resource_data.get('resourceType')
+        resource_data['id'] = args.id
+        response = fhir_manager.update(resource_type, args.id, resource_data)
+        log(f"Updated {args.resource_type} with ID {args.id}")
+        
     elif args.mode == 'delete':
         if not args.id or not args.resource_type:
             log("ID and resource type are required for delete operation", level='error')
-            return
+            raise ValueError('ID and resource type are required for delete operation')
         
         response = fhir_manager.delete(args.resource_type, args.id)
         log(f"Deleted {args.resource_type} with ID {args.id}")
@@ -63,6 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--is_develop', action='store_true', required=False, help='Enable development mode for controlled random UUID generation')
     parser.add_argument('--id', type=str, required=False, help='Resource ID for read, update, or delete operations')
     parser.add_argument('--resource_type', type=str, required=False, help='Resource type for read, update, or delete operations')
+    parser.add_argument('--update_data_path', type=str, required=False, help='Data path for update operation (JSON file)')
     args = parser.parse_args()
 
     main(args)

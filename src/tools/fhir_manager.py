@@ -44,11 +44,12 @@ class FHIRManager:
         return self.__logging(response)
     
 
-    def update(self, resource_type:str, id:str, headers=None):
+    def update(self, resource_type:str, id:str, resource_data, headers=None):
         fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.put(
             fhir_url,
             headers={'Content-Type': 'application/fhir+json'} if headers is None else headers,
+            json=resource_data,
         )
 
         # Log and return the response
