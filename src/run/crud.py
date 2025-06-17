@@ -44,7 +44,8 @@ def main(args):
                 resource_data['id'] = random_uuid(args.is_develop)
             
             response = fhir_manager.create(resource_type, resource_data)
-            log(f"Created {resource_type} with ID {response.get('id')}")
+            if  200 <= response.status_code < 300:
+                log(f"Created {resource_type} with ID {response.json().get('id')}")
 
     elif args.mode == 'read':
         if not args.id or not args.resource_type:
@@ -52,7 +53,8 @@ def main(args):
             raise ValueError('ID and resource type are required for read operation')
     
         response = fhir_manager.read(args.resource_type, args.id)
-        log(f"Read {args.resource_type} with ID {args.id}")
+        if  200 <= response.status_code < 300:
+            log(f"Read {args.resource_type} with ID {args.id}")
 
     elif args.mode == 'update':
         if not args.id:
@@ -63,7 +65,8 @@ def main(args):
         resource_type = resource_data.get('resourceType')
         resource_data['id'] = args.id
         response = fhir_manager.update(resource_type, args.id, resource_data)
-        log(f"Updated {args.resource_type} with ID {args.id}")
+        if  200 <= response.status_code < 300:
+            log(f"Updated {args.resource_type} with ID {args.id}")
         
     elif args.mode == 'delete':
         if not args.id or not args.resource_type:
@@ -71,7 +74,8 @@ def main(args):
             raise ValueError('ID and resource type are required for delete operation')
         
         response = fhir_manager.delete(args.resource_type, args.id)
-        log(f"Deleted {args.resource_type} with ID {args.id}")
+        if  200 <= response.status_code < 300:
+            log(f"Deleted {args.resource_type} with ID {args.id}")
     
 
 

@@ -10,10 +10,14 @@ class FHIRManager:
         
     
     def __logging(self, response):
-        log(f'Status code: {response.status_code}')
+        if  200 <= response.status_code < 300:
+            log(f'Status code: {response.status_code}', color=True)
+        else:
+            log(f'Status code: {response.status_code}', level='error')
+        
         try:
-            response = response.json()
-            log(f'Response JSON: {response}')      
+            response_json = response.json()
+            log(f'Response JSON: {response_json}')      
         except ValueError:
             log(f'Response Text: {response.text}', level='error')
             response = None
