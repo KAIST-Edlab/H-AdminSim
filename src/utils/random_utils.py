@@ -67,4 +67,11 @@ def generate_random_names(n: int, first_name_file: str, last_name_file: str) -> 
         registry.FIRST_NAMES = [word.capitalize() for word in txt_load(first_name_file).split('\n')]
     if registry.LAST_NAMES is None:
         registry.LAST_NAMES = [word.capitalize() for word in txt_load(last_name_file).split('\n')]
-    return [f"{random.choice(registry.FIRST_NAMES)} {random.choice(registry.LAST_NAMES)}" for _ in range(n)]
+
+    # Ensure unique names
+    names = set()
+    while len(names) < n:
+        first_name = random.choice(registry.FIRST_NAMES)
+        last_name = random.choice(registry.LAST_NAMES)
+        names.add(f"{first_name} {last_name}")
+    return list(names)
