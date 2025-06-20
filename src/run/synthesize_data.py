@@ -32,10 +32,11 @@ def main(args):
     # Initialize data synthesizer
     data_synthesizer = DataSynthesizer(config)
     status = data_synthesizer.synthesize()
-    if status:
+    if status == True:
         log(f"Data synthesis completed successfully", color=True)
     else:
         log("Data synthesis failed.", level='error')
+        raise status
     
     
 
