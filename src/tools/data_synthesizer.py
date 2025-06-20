@@ -55,7 +55,6 @@ class DataSynthesizer:
             Tuple[Information, Hospital]: Metadata about the hospital and a Hospital object containing its structure.
         """
         # Define hosptial metadata
-        hospital_obj = Hospital(hospital_name)
         interval_hour = config.hospital_data.interval_hour
         start_hour = random.choice(
             np.arange(
@@ -88,6 +87,14 @@ class DataSynthesizer:
                 end_hour=end_hour,
                 inteveal_hour=interval_hour
             )
+        )
+        hospital_obj = Hospital(
+            hospital_name,
+            time={
+                'start_hour': start_hour,
+                'end_hour': end_hour,
+                'interval_hour': interval_hour
+            }
         )
 
         # Define detailed hospital department and doctoral information
