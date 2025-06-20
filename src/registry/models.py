@@ -3,12 +3,15 @@ class Hospital:
                  hospital_name: str,
                  department_num: int,
                  doctor_num: int,
-                 time: dict,):
+                 time: dict,
+                 **kwargs):
         self.hospital_name = hospital_name
         self.department_num = department_num
         self.doctor_num = doctor_num
         self.time = time
         self.department: list[Department] = []
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
     def add_department(self, department_name: str, **kwargs):
