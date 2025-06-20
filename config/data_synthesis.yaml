@@ -5,13 +5,18 @@ seed: 9999
 fhir_url: http://localhost:8080/fhir
 
 # Data configs
-time_config:
-    start_hour: 8
-    end_hour: 18
-    interval_hours: 0.5
-
-doctor_config:
-    num_doctors: 10
-        
-
-
+hospital_data:
+    hospital_n: 1
+    interval_hour: 0.5
+    start_hour:
+        min: 6
+        max: 8
+    end_hour:
+        min: 18
+        max: 20
+    department_per_hospital:
+        min: 2
+        max: 5    
+    doctor_per_department:
+        min: 1
+        max: 1
