@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from tools import DataSynthesizer
+from utils import log
 
 
 
@@ -30,7 +31,11 @@ def main(args):
 
     # Initialize data synthesizer
     data_synthesizer = DataSynthesizer(config)
-    data_synthesizer.synthesize()
+    status = data_synthesizer.synthesize()
+    if status:
+        log(f"Data synthesis completed successfully", color=True)
+    else:
+        log("Data synthesis failed.", level='error')
     
     
 
