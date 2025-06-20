@@ -15,7 +15,8 @@ from utils.filesys_utils import txt_load, json_save, yaml_save, make_project_dir
 class DataSynthesizer:
     def __init__(self, config):
         # Initialize configuration, path and save directory
-        self._config = config        
+        self._config = config
+        self._n = self._config.hospital_data.hospital_n
         self._save_dir = make_project_dir(self._config)
         self._data_save_dir = self._save_dir / 'data'
         yaml_save(self._save_dir / 'args.yaml', self._config)
@@ -37,7 +38,7 @@ class DataSynthesizer:
             for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
                 data = self.define_hospital_info(self._config, hospital)
                 hospital_obj = convert_info_to_obj(data)
-                json_save(self._data_save_dir / f'hospital_{padded_int(i)}.json', to_dict(data))
+                json_save(self._data_save_dir / f'hospital_{padded_int(i, len(str(self._n)))}.json', to_dict(data))
             log(f"Total {len(hospitals)} data synthesizing completed. Path: `{self._data_save_dir}`", color=True)
             return data, hospital_obj
         
@@ -144,7 +145,7 @@ class DataSynthesizer:
             if registry.HOSPITALS is None:
                 registry.HOSPITALS = [word.capitalize() for word in txt_load(file_path).split('\n')]
             return [f"{random.choice(registry.HOSPITALS)}" for _ in range(hospital_n)]
-        return [f"hospital_{padded_int(i+1)}" for i in range(hospital_n)]
+        return [f"hospital_{padded_int(i, len(str(self._n)))}" for i in range(hospital_n)]
 
     
     def make_departments(self, department_n: int, file_path: Optional[str] = None) -> list[str]:
@@ -162,7 +163,7 @@ class DataSynthesizer:
             if registry.DEPARTMENTS is None:
                 registry.DEPARTMENTS = [word.capitalize() for word in txt_load(file_path).split('\n')]
             return [f"{random.choice(registry.DEPARTMENTS)}" for _ in range(department_n)]
-        return [f"department_{padded_int(i+1)}" for i in range(department_n)]
+        return [f"department_{padded_int(i, len(str(self._n)))}" for i in range(department_n)]
     
 
     def make_doctors(self,
