@@ -1,10 +1,9 @@
 import uuid
 import random
 
-import sys, os
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-
+import registry
 from utils import log
+from utils.filesys_utils import txt_load
 
 
 
@@ -52,17 +51,20 @@ def random_time_segment(start: float, end: float, interval: float) -> list[int]:
 
 
 
+def generate_random_names(n: int, first_name_file: str, last_name_file: str) -> list[str]:
+    """
+    Generate a list of random names by combining first and last names from specified files.
 
+    Args:
+        n (int): Number of random names to generate.
+        first_name_file (str): Path to the file containing first names.
+        last_name_file (str): Path to the file containing last names.
 
-if __name__ == '__main__':
-    # Example usage
-    print('----------- ')
-    print(random_time_segment(0, 24, 0.5))
-    print('----------- ')
-    print(random_time_segment(0, 24, 1.0))
-    print('----------- ')
-    print(random_time_segment(0, 12, 0.25))
-    print('----------- ')
-    print(random_time_segment(9.6, 18, 0.5))
-    print('----------- ')
-    print(random_time_segment(0, 1, 0.1))
+    Returns:
+        list[str]: List of randomly generated names in the format "First Last".
+    """
+    if registry.FIRST_NAMES is None:
+        registry.FIRST_NAMES = [word.capitalize() for word in txt_load(first_name_file).split('\n')]
+    if registry.LAST_NAMES is None:
+        registry.LAST_NAMES = [word.capitalize() for word in txt_load(last_name_file).split('\n')]
+    return [f"{random.choice(registry.FIRST_NAMES)} {random.choice(registry.LAST_NAMES)}" for _ in range(n)]

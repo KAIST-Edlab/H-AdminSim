@@ -110,6 +110,7 @@ def colorstr(*input):
     return ''.join(colors[x] for x in args) + f'{string}' + colors['end']
 
 
+
 def log(message, level='info', color=False):
     if level.lower() == 'warning':
         LOGGER.warning(message)
@@ -120,3 +121,16 @@ def log(message, level='info', color=False):
             LOGGER.info(colorstr(message))
         else:
             LOGGER.info(message)
+
+
+
+class Information:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+    
+    def update(self, **kwargs):
+        self.__dict__.update(kwargs)
+        return self
