@@ -180,4 +180,6 @@ class DataSynthesizer:
         Returns:
             list[str]: List of doctor names in the format "Doctor 001", "Doctor 002", etc.
         """
-        return random.shuffle([f'Dr. {name}' for name in generate_random_names(doctor_n, first_name_file_path, last_name_file_path)])
+        doctors = [f'Dr. {name}' for name in generate_random_names(doctor_n, first_name_file_path, last_name_file_path)]
+        random.shuffle(doctors)
+        return doctors
