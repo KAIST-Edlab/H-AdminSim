@@ -1,6 +1,12 @@
 class Hospital:
-    def __init__(self, name: str, time: dict):
-        self.name = name
+    def __init__(self, 
+                 hospital_name: str,
+                 department_num: int,
+                 doctor_num: int,
+                 time: dict,):
+        self.hospital_name = hospital_name
+        self.department_num = department_num
+        self.doctor_num = doctor_num
         self.time = time
         self.department: list[Department] = []
 
@@ -28,7 +34,7 @@ class Hospital:
 
 
     def __repr__(self):
-        return f"Hospital(name={self.name}, departments={[d.name for d in self.department]}, time={self.time})"
+        return f"Hospital(name={self.hospital_name}, departments={[d.name for d in self.department]}, time={self.time})"
 
 
 
