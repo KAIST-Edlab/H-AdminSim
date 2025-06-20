@@ -1,11 +1,12 @@
 import os
 import random
 import numpy as np
+from tqdm import tqdm
 from typing import Optional, Tuple
 
 import registry
 from registry import Hospital
-from utils import Information, colorstr
+from utils import Information, log, colorstr
 from utils.common_utils import padded_int, to_dict
 from utils.random_utils import generate_random_names
 from utils.filesys_utils import txt_load, json_save, yaml_save, make_project_dir
@@ -22,11 +23,24 @@ class DataSynthesizer:
         os.makedirs(self._data_save_dir, exist_ok=True)
         
     
-    def synthesize(self):
-        hospitals = self.make_hospital(self._config.hospital_data.hospital_n)
-        for i, hospital in enumerate(hospitals):
-            data, hospital_obj = self.define_hospital_info(self._config, hospital)
-            json_save(self._data_save_dir / f'hospital_{padded_int(i)}.json', to_dict(data))
+    def synthesize(self) -> bool:
+        """
+        Synthesize hospital data based on the configuration settings.
+
+        Returns:
+            bool: True if data synthesis is successful, False otherwise.
+        """
+        try:
+            hospitals = self.make_hospital(self._config.hospital_data.hospital_n)
+            for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
+                data, hospital_obj = self.define_hospital_info(self._config, hospital)
+                json_save(self._data_save_dir / f'hospital_{padded_int(i)}.json', to_dict(data))
+            log(f"Total {len(hospitals)} data synthesizing completed. Path: `{self._data_save_dir}`", color=True)
+            return True
+        
+        except Exception as e:
+            log(f"Data synthesizing failed: {e}", level='error')
+            return False
 
 
     def define_hospital_info(self, config, hospital_name: str) -> Tuple[Information, Hospital]:
@@ -166,4 +180,4 @@ class DataSynthesizer:
         Returns:
             list[str]: List of doctor names in the format "Doctor 001", "Doctor 002", etc.
         """
-        return [f'Dr. {name}' for name in generate_random_names(doctor_n, first_name_file_path, last_name_file_path)]
+        return random.shuffle([f'Dr. {name}' for name in generate_random_names(doctor_n, first_name_file_path, last_name_file_path)])
