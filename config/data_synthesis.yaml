@@ -8,7 +8,7 @@ fhir_url: http://localhost:8080/fhir
 project: ./synthetic_data/
 data_name: hospital_easy
 hospital_data:
-    hospital_n: 3
+    hospital_n: 10000
     interval_hour: 0.5
     start_hour:
         min: 6
