@@ -2,11 +2,12 @@
 
 
 ### Recent updates 📣
-* *June 2025 (v0.0.5)*: Enhance and fix the FHIR manager operations.
-* *June 2025 (v0.0.4)*: Update documents (environment setting, CRUD guides)
-* *June 2025 (v0.0.3)*: Now we support FHIR CRUD.
-* *June 2025 (v0.0.2)*: Create chat demo `README.md`.
-* *June 2025 (v0.0.1)*: Create chat demo codes using FastAPI communication.
+* *June 2025 (v0.1.0)*: Added random hospital data synthesizing codes and completed sanity check.
+* *June 2025 (v0.0.5)*: Enhanced and fixed the FHIR manager operations.
+* *June 2025 (v0.0.4)*: Updated documents (environment setting, CRUD guides)
+* *June 2025 (v0.0.3)*: Now we has supported FHIR CRUD.
+* *June 2025 (v0.0.2)*: Created chat demo `README.md`.
+* *June 2025 (v0.0.1)*: Created chat demo codes using FastAPI communication.
 
 &nbsp;
 
