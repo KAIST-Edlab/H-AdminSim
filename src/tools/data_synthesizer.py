@@ -35,9 +35,9 @@ class DataSynthesizer:
             Tuple[Information, Hospital]: A tuple containing the synthesized hospital data as an Information object and a Hospital object.
         """
         try:
-            hospitals = self.make_hospital(self._config.hospital_data.hospital_n)
+            hospitals = DataSynthesizer.hospital_list_generator(self._config.hospital_data.hospital_n)
             for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
-                data = self.define_hospital_info(self._config, hospital)
+                data = DataSynthesizer.define_hospital_info(self._config, hospital)
                 hospital_obj = convert_info_to_obj(data)
                 json_save(self._data_save_dir / f'hospital_{padded_int(i, len(str(self._n)))}.json', to_dict(data))
             log(f"Total {len(hospitals)} data synthesizing completed. Path: `{self._data_save_dir}`", color=True)
@@ -48,7 +48,8 @@ class DataSynthesizer:
             raise e
 
 
-    def define_hospital_info(self, config, hospital_name: str) -> Information:
+    @staticmethod
+    def define_hospital_info(config, hospital_name: str) -> Information:
         """
         Define the synthetic hospital data, including its departments and doctors.
 
@@ -99,8 +100,8 @@ class DataSynthesizer:
 
         # Define detailed hospital department and doctoral information
         department_info, doctor_info = dict(), dict()
-        departments = self.make_departments(department_n)
-        doctors = self.make_doctors(doctor_n)   # Doctor names are unique across all departments
+        departments = DataSynthesizer.department_list_generator(department_n)
+        doctors = DataSynthesizer.random_name_generator(doctor_n, prefix='Dr. ')   # Doctor names are unique across all departments
         for department, doc_n in zip(departments, doctor_n_per_department):
             # Add department to hospital
             department_info[department] = {'doctor': []}
@@ -112,7 +113,7 @@ class DataSynthesizer:
                 doctor_info[doctor] = {
                     'department': department,
                     'schedule': scheduler(
-                        self.random_prob(
+                        DataSynthesizer.random_prob_generator(
                             config.hospital_data.doctor_has_schedule_prob,
                             config.hospital_data.schedule_coverage_ratio.min,
                             config.hospital_data.schedule_coverage_ratio.max
@@ -140,7 +141,9 @@ class DataSynthesizer:
         return data
 
 
-    def make_hospital(self, hospital_n: int, file_path: Optional[str] = None) -> list[str]:
+    @staticmethod
+    def hospital_list_generator(hospital_n: int,
+                                file_path: Optional[str] = None) -> list[str]:
         """
         Generate a list of hospital names based on the number of hospitals.
         
@@ -155,10 +158,14 @@ class DataSynthesizer:
             if registry.HOSPITALS is None:
                 registry.HOSPITALS = [word.capitalize() for word in txt_load(file_path).split('\n')]
             return [f"{random.choice(registry.HOSPITALS)}" for _ in range(hospital_n)]
-        return [f"hospital_{padded_int(i, len(str(self._n)))}" for i in range(hospital_n)]
+        
+        zfill_l = len(str(hospital_n))
+        return [f"hospital_{padded_int(i, zfill_l)}" for i in range(hospital_n)]
 
     
-    def make_departments(self, department_n: int, file_path: Optional[str] = None) -> list[str]:
+    @staticmethod
+    def department_list_generator(department_n: int,
+                                  file_path: Optional[str] = None) -> list[str]:
         """
         Generate a list of department names based on the number of departments.
         
@@ -173,45 +180,52 @@ class DataSynthesizer:
             if registry.DEPARTMENTS is None:
                 registry.DEPARTMENTS = [word.capitalize() for word in txt_load(file_path).split('\n')]
             return [f"{random.choice(registry.DEPARTMENTS)}" for _ in range(department_n)]
-        return [f"department_{padded_int(i, len(str(self._n)))}" for i in range(department_n)]
+        zfill_l = len(str(department_n))
+        return [f"department_{padded_int(i, zfill_l)}" for i in range(department_n)]
     
-
-    def make_doctors(self,
-                     doctor_n: int,
-                     first_name_file_path: str = 'asset/names/firstname.txt',
-                     last_name_file_path: str = 'asset/names/lastname.txt') -> list[str]:
+    
+    @staticmethod
+    def random_name_generator(n: int,
+                              first_name_file_path: str = 'asset/names/firstname.txt', 
+                              last_name_file_path: str = 'asset/names/lastname.txt',
+                              prefix: Optional[str] = None) -> list[str]:
         """
-        Generate a list of doctor names based on the number of doctors.
+        Generate a list of names.
         
         Args:
-            doctor_n (int): Number of doctors to generate.
+            n (int): Number of doctors to generate.
             first_name_file_path (str): Path to a file containing first names. Defaults to 'asset/names/firstname.txt'.
             last_name_file_path (str): Path to a file containing last names. Defaults to 'asset/names/lastname.txt'.
+            prefix (Optional[str]): Prefix for to be generated names.
         
         Returns:
             list[str]: List of doctor names in the format "Doctor 001", "Doctor 002", etc.
         """
-        doctors = [f'Dr. {name}' for name in generate_random_names(doctor_n, first_name_file_path, last_name_file_path)]
-        random.shuffle(doctors)
-        return doctors
+        if prefix != None:
+            assert isinstance(prefix, str), log("`prefix` must be a string type", "error")
+            names = [f'{prefix}{name}' for name in generate_random_names(n, first_name_file_path, last_name_file_path)]
+        else:
+            names = [name for name in generate_random_names(n, first_name_file_path, last_name_file_path)]
+        random.shuffle(names)
+        return names
     
 
-    def random_prob(self, 
-                    doctor_has_schedule_prob: float,
-                    coverage_min: float,
-                    coverage_max: float) -> float:
+    @staticmethod
+    def random_prob_generator(has_schedule_prob: float, 
+                              coverage_min: float, 
+                              coverage_max: float) -> float:
         """
         Determine the final schedule ratio for a doctor.
 
         Args:
-            doctor_has_schedule_prob (float): Probability that a doctor has any schedule.
+            has_schedule_prob (float): Probability that a doctor has any schedule.
             coverage_min (float): Minimum proportion of total available hours the schedule can occupy.
             coverage_max (float): Maximum proportion of total available hours the schedule can occupy.
 
         Returns:
             float: The final schedule ratio. 0.0 if the doctor has no schedule. A float in [coverage_min, coverage_max] if the doctor has a schedule.
         """
-        has_schedule = random.random() < doctor_has_schedule_prob
+        has_schedule = random.random() < has_schedule_prob
         if not has_schedule:
             return 0.0
 
