@@ -1,5 +1,5 @@
 import random
-from typing import Optional
+from typing import Tuple, Optional
 
 from utils.random_utils import convert_segment_to_time, convert_time_to_segment
 
@@ -124,7 +124,7 @@ class ScheduleAssigner:
                  p: float,
                  is_appointment: bool = False,
                  segments: Optional[list[list[int]]] = None,
-                 **kwargs) -> list[list[float]]:
+                 **kwargs) -> Tuple[list[list[int]], list[list[float]]]:
         """
         Generate grouped time ranges by randomly selecting and grouping a proportion of time segments.
 
@@ -138,6 +138,8 @@ class ScheduleAssigner:
             segments (Optional[segments]): Specific segemnts. Defaults to None.
 
         Returns:
+            list[list[float]]: A list of grouped time segments. Each group is a list of time segemnt values.
+                            For example: [[2, 3], [5, 6, 7]].
             list[list[float]]: A list of grouped time ranges. Each group is a list of time values (in hours),
                             corresponding to consecutive time segments.
                             For example: [[0.0, 0.5], [2.0, 3.0]].
@@ -151,5 +153,5 @@ class ScheduleAssigner:
             if is_appointment else self.schedule_segment_assign(p, segments)
 
         if len(time_segments):
-            return [list(convert_segment_to_time(self.start, self.end, self.interval, segments)) for segments in  time_segments]
-        return []
+            return time_segments, [list(convert_segment_to_time(self.start, self.end, self.interval, segments)) for segments in  time_segments]
+        return [], []

@@ -22,8 +22,11 @@ hospital_data:
     doctor_per_department:
         min: 1
         max: 5
-    doctor_has_schedule_prob: 0.3
-    schedule_coverage_ratio:
+    doctor_has_schedule_prob: 0.3   # The probability that a doctor has at least one fixed schedule.
+    schedule_coverage_ratio:        # If the doctor has a fixed schedule, the proportion of that schedule relative to the total working hours.
         min: 0.01
         max: 0.2
-
+    appointment_coverage_ratio:   # Proportion of appointment time scheduled with patients outside the doctor's fixed schedule.
+        max_chunk_size: 4         # Maximum number of consecutive segments per appointment (e.g., max duration = interval_hour * max_chunk_size).
+        min: 0.9
+        max: 1.0

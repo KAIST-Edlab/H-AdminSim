@@ -8,8 +8,8 @@ import registry
 from tasks import ScheduleAssigner
 from utils import Information, log, colorstr
 from utils.common_utils import *
-from utils.random_utils import generate_random_names
 from utils.filesys_utils import txt_load, json_save, yaml_save, make_project_dir
+from utils.random_utils import generate_random_names, convert_time_to_segment, generate_random_prob
 
 
 
@@ -24,9 +24,12 @@ class DataSynthesizer:
         os.makedirs(self._data_save_dir, exist_ok=True)
         
     
-    def synthesize(self) -> Tuple[Information, Hospital]:
+    def synthesize(self, return_obj: bool = False) -> Tuple[Information, Hospital]:
         """
         Synthesize hospital data based on the configuration settings.
+
+        Args:
+            return_obj (bool): Whether to return the hospital data object.
 
         Raises:
             e: Exception if data synthesis fails.
@@ -38,7 +41,9 @@ class DataSynthesizer:
             hospitals = DataSynthesizer.hospital_list_generator(self._config.hospital_data.hospital_n)
             for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
                 data = DataSynthesizer.define_hospital_info(self._config, hospital)
-                hospital_obj = convert_info_to_obj(data)
+                hospital_obj = convert_info_to_obj(data) if return_obj else None
+                # new_data = convert_obj_to_info(hospital_obj)
+                # assert to_dict(data) == to_dict(new_data)
                 json_save(self._data_save_dir / f'hospital_{padded_int(i, len(str(self._n)))}.json', to_dict(data))
             log(f"Total {len(hospitals)} data synthesizing completed. Path: `{self._data_save_dir}`", color=True)
             return data, hospital_obj
@@ -83,7 +88,7 @@ class DataSynthesizer:
         doctor_n_per_department = [random.randint(config.hospital_data.doctor_per_department.min, config.hospital_data.doctor_per_department.max) 
                                    for _ in range(department_n)]
         doctor_n = sum(doctor_n_per_department)
-
+        hospital_time_segments = convert_time_to_segment(start_hour, end_hour, interval_hour)
         metadata = Information(
             hospital_name=hospital_name,
             department_num=department_n,
@@ -98,34 +103,56 @@ class DataSynthesizer:
         # Define SchedulerAssigner class to randomly assign schedules to each doctor
         scheduler = ScheduleAssigner(start_hour, end_hour, interval_hour)
 
-        # Define detailed hospital department and doctoral information
-        department_info, doctor_info = dict(), dict()
+        # Define detailed hospital department, doctoral, and patient information
+        department_info, doctor_info, patient_info = dict(), dict(), dict()
         departments = DataSynthesizer.department_list_generator(department_n)
-        doctors = DataSynthesizer.random_name_generator(doctor_n, prefix='Dr. ')   # Doctor names are unique across all departments
+        doctors = DataSynthesizer.name_list_generator(doctor_n, prefix='Dr. ')   # Doctor names are unique across all departments
         for department, doc_n in zip(departments, doctor_n_per_department):
-            # Add department to hospital
+            # Add department information
             department_info[department] = {'doctor': []}
             
-            # Add doctors to department
+            # Add doctor information
             for _ in range(doc_n):
                 doctor = doctors.pop()
                 department_info[department]['doctor'].append(doctor)
+                schedule_segments, schedule_times = scheduler(
+                    generate_random_prob(
+                        config.hospital_data.doctor_has_schedule_prob,
+                        config.hospital_data.schedule_coverage_ratio.min,
+                        config.hospital_data.schedule_coverage_ratio.max
+                    )
+                )
                 doctor_info[doctor] = {
                     'department': department,
-                    'schedule': scheduler(
-                        DataSynthesizer.random_prob_generator(
-                            config.hospital_data.doctor_has_schedule_prob,
-                            config.hospital_data.schedule_coverage_ratio.min,
-                            config.hospital_data.schedule_coverage_ratio.max
-                        )
-                    )
+                    'schedule': schedule_times,
                 }
+
+                # Add patient information per doctor
+                patient_segments = list(set(hospital_time_segments) - set(sum(schedule_segments, [])))
+                _, appointments = scheduler(
+                    generate_random_prob(
+                        1,
+                        config.hospital_data.appointment_coverage_ratio.min,
+                        config.hospital_data.appointment_coverage_ratio.max
+                    ),
+                    True,
+                    patient_segments,
+                    max_chunk_size=config.hospital_data.appointment_coverage_ratio.max_chunk_size
+                )
+                patients = DataSynthesizer.name_list_generator(len(appointments))
+                for patient, appointment in zip(patients, appointments):
+                    patient_info[patient] = {
+                        'department': department,
+                        'attending_physician': doctor,
+                        'schedule': appointment,
+                    }
             
         # Finalize data structure
         data = Information(
             metadata=metadata,
             department=department_info,
             doctor=doctor_info,
+            patient=patient_info,
         )
 
         # Data sanity check
@@ -185,7 +212,7 @@ class DataSynthesizer:
     
     
     @staticmethod
-    def random_name_generator(n: int,
+    def name_list_generator(n: int,
                               first_name_file_path: str = 'asset/names/firstname.txt', 
                               last_name_file_path: str = 'asset/names/lastname.txt',
                               prefix: Optional[str] = None) -> list[str]:
@@ -208,25 +235,3 @@ class DataSynthesizer:
             names = [name for name in generate_random_names(n, first_name_file_path, last_name_file_path)]
         random.shuffle(names)
         return names
-    
-
-    @staticmethod
-    def random_prob_generator(has_schedule_prob: float, 
-                              coverage_min: float, 
-                              coverage_max: float) -> float:
-        """
-        Determine the final schedule ratio for a doctor.
-
-        Args:
-            has_schedule_prob (float): Probability that a doctor has any schedule.
-            coverage_min (float): Minimum proportion of total available hours the schedule can occupy.
-            coverage_max (float): Maximum proportion of total available hours the schedule can occupy.
-
-        Returns:
-            float: The final schedule ratio. 0.0 if the doctor has no schedule. A float in [coverage_min, coverage_max] if the doctor has a schedule.
-        """
-        has_schedule = random.random() < has_schedule_prob
-        if not has_schedule:
-            return 0.0
-
-        return random.uniform(coverage_min, coverage_max)

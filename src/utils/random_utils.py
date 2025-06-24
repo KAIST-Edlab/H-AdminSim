@@ -113,3 +113,25 @@ def generate_random_names(n: int, first_name_file: str, last_name_file: str) -> 
         last_name = random.choice(registry.LAST_NAMES)
         names.add(f"{first_name} {last_name}")
     return sorted(list(names))
+
+
+
+def generate_random_prob(has_schedule_prob: float, 
+                          coverage_min: float, 
+                          coverage_max: float) -> float:
+    """
+    Determine the final schedule ratio for a doctor.
+
+    Args:
+        has_schedule_prob (float): Probability that a doctor has any schedule.
+        coverage_min (float): Minimum proportion of total available hours the schedule can occupy.
+        coverage_max (float): Maximum proportion of total available hours the schedule can occupy.
+
+    Returns:
+        float: The final schedule ratio. 0.0 if the doctor has no schedule. A float in [coverage_min, coverage_max] if the doctor has a schedule.
+    """
+    has_schedule = random.random() < has_schedule_prob
+    if not has_schedule:
+        return 0.0
+
+    return random.uniform(coverage_min, coverage_max)

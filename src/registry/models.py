@@ -55,7 +55,6 @@ class Department:
         
         Args:
             doctor_name (str): Name of the doctor to add.
-            schedule (list[list[float]]): Doctor's fixed schedule time.
         
         Returns:
             Doctor: The newly created Doctor object.
@@ -81,9 +80,47 @@ class Doctor:
     def __init__(self, name: str, department: Department, **kwargs):
         self.name = name
         self.department = department
+        self.schedule = []
+        self.patient: list[Patient] = []
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    
+    def add_patient(self, patient_name: str, **kwargs):
+        """
+        Add a patient to the doctor.
+        
+        Args:
+            patient_name (str): Name of the patient to add.
+        
+        Returns:
+            Paitnet: The newly created Paitent object.
+        """
+        patient = Patient(patient_name, self, **kwargs)
+        self.patient.append(patient)
+        return patient
+
+    
+    def reset_patients(self):
+        """
+        Reset the list of patients in the doctor.
+        """
+        self.patient = []
 
 
     def __repr__(self):
         return f"Doctor(name={self.name}, department={self.department.name}), schedule={self.schedule})"
+    
+
+
+class Patient:
+    def __init__(self, name: str, attending_physician: Doctor, **kwargs):
+        self.name = name
+        self.attending_physician = attending_physician
+        self.schedule = []
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    
+
+    def __repr__(self):
+        return f"Patient(name={self.name}, department={self.attending_physician.department.name}), attending_physician={self.attending_physician.name}), schedule={self.schedule})"

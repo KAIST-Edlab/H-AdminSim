@@ -56,6 +56,15 @@ def convert_info_to_obj(data: Information) -> Hospital:
     """
     data = to_dict(data)  # Convert Information to dict for easier access
     
+    # Make doctor to patient map due to weakly linked patient data in the data dictionary
+    doctor_to_patient = dict()
+    for patient, patient_values in data['patient'].items():
+        doctor = patient_values['attending_physician']
+        if doctor in doctor_to_patient:
+            doctor_to_patient[doctor].append(patient)
+        else:
+            doctor_to_patient[doctor] = [patient]
+    
     hospital_obj = Hospital(**data.get('metadata'))
     for department, department_values in data.get('department').items():
         filtered_values1 = {k: v for k, v in department_values.items() if k != 'doctor'}
@@ -64,7 +73,11 @@ def convert_info_to_obj(data: Information) -> Hospital:
         for doctor in department_values['doctor']:
             doctor_values = data.get('doctor').get(doctor)
             filtered_values2 = {k: v for k, v in doctor_values.items() if k != 'department'}
-            department_obj.add_doctor(doctor, **filtered_values2)
+            doctor_obj = department_obj.add_doctor(doctor, **filtered_values2)
+            for patient in doctor_to_patient[doctor]:
+                patient_values = data.get('patient').get(patient)
+                filtered_values3 = {k: v for k, v in patient_values.items() if k != 'attending_physician'}
+                doctor_obj.add_patient(patient, **filtered_values3)
     
     return hospital_obj
 
@@ -84,15 +97,21 @@ def convert_obj_to_info(hospital_obj: Hospital) -> Information:
     filtered_values['time'] = Information(**hospital_obj.time)
     metadata = Information(**filtered_values)
     
-    department_info, doctor_info = {}, {}
+    department_info, doctor_info, patient_info = dict(), dict(), dict()
     for department_obj in hospital_obj.department:
         filtered_values = {k: v for k, v in department_obj.__dict__.items() if k not in ['name', 'doctor']}
         filtered_values['doctor'] = [doctor_obj.name for doctor_obj in department_obj.doctor]
         department_info[department_obj.name] = {**filtered_values}
         
         for doctor_obj in department_obj.doctor:
-            filtered_values2 = {k: v for k, v in doctor_obj.__dict__.items() if k not in ['name', 'department']}
+            filtered_values2 = {k: v for k, v in doctor_obj.__dict__.items() if k not in ['name', 'department', 'patient']}
             filtered_values2['department'] = doctor_obj.department.name
             doctor_info[doctor_obj.name] = {**filtered_values2}
 
-    return Information(metadata=metadata, department=department_info, doctor=doctor_info)
+            for patient_obj in doctor_obj.patient:
+                filtered_values3 = {k: v for k, v in patient_obj.__dict__.items() if k not in ['name', 'department', 'attending_physician']}
+                filtered_values3['department'] = doctor_obj.department.name
+                filtered_values3['attending_physician'] = doctor_obj.name
+                patient_info[patient_obj.name] = {**filtered_values3}
+
+    return Information(metadata=metadata, department=department_info, doctor=doctor_info, patient=patient_info)
