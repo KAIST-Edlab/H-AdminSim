@@ -26,7 +26,7 @@ json*/
 # Data and configuration folders
 data/
 config/
-config_lora/
+.vscode/launch.json
 
 # Output folders
 output/*
