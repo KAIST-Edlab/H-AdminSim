@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *June 2025 (v0.1.1)*: Added random patient data synthesizing codes and completed sanity check.
 * *June 2025 (v0.1.0)*: Added random hospital data synthesizing codes and completed sanity check.
 * *June 2025 (v0.0.5)*: Enhanced and fixed the FHIR manager operations.
 * *June 2025 (v0.0.4)*: Updated documents (environment setting, CRUD guides)
