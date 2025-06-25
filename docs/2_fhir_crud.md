@@ -1,5 +1,5 @@
 # FHIR CRUD
-Here, we introduce how to  perform CRUD operations on FHIR.
+Here, we introduce how to perform CRUD operations on FHIR.
 
 &nbsp;
 

@@ -32,8 +32,8 @@ class DataSynthesizer:
 
         Args:
             return_obj (bool): Whether to return the hospital data object.
-            sanity_check (bool): Whether generated data and Hospital ojbect compatiable.
-                                 You can use this option when you develop the codes.
+            sanity_check (bool): If you want to check whether the generated data are compatible with the `Hospital` object,
+                                 you can use this option.
 
         Raises:
             e: Exception if data synthesis fails.

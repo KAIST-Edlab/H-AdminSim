@@ -42,7 +42,7 @@ def main(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
-    parser.add_argument('--sanity_check', action='store_true', required=False, help='Check whether generated data and Hospital object compatiable')
+    parser.add_argument('--sanity_check', action='store_true', required=False, help='Check whether generated data and Hospital object compatible')
     args = parser.parse_args()
 
     main(args)
