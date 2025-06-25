@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *June 2025 (v0.1.2)*: The data synthesis speed has been improved, and a sanity check feature has been added during synthesis.
 * *June 2025 (v0.1.1)*: Added random patient data synthesizing codes and completed sanity check.
 * *June 2025 (v0.1.0)*: Added random hospital data synthesizing codes and completed sanity check.
 * *June 2025 (v0.0.5)*: Enhanced and fixed the FHIR manager operations.
@@ -23,55 +24,41 @@ For detailed usage instructions, please refer to the description below.
 * Universal LLM trainer supports full-training.
 * Universal LLM trainer supports LoRA fine-tuning.
 * Universal LLM trainer supports QLoRA fine-tuning.
-* Universal LLM trainer supports DDP and FSDP training strategies.
-
-&nbsp; -->
-
-
+* Universal LLM trainer supports DDP and FSDP training strategies.-->
 
 &nbsp;
 
 &nbsp;
 
-<!-- ## Quick Starts 🚀
+
+
+## Quick Starts 🚀
 ### Environment setup
 We have to install PyTorch and other requirements. Please refer to more [detailed setup](./docs/1_getting_started.md) including Docker.
 ```bash
-# PyTorch Install
-pip3 install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+# PyTorch install
+pip3 install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 
-# Requirements Install
+# Requirements install
 pip3 install -r docker/requirements.txt
 ```
 
 &nbsp;
 
-### Data preparation
+### Synthesizing hospital data
 ```bash
-python3 src/run/dataset_download.py --dataset allenai/ai2_arc --download_path data_examples
+python3 src/run/synthesize_data.py --config config/data_synthesis.yaml
 ```
 
 &nbsp;
 
-### LLM training
-```bash
-# Llama 3.1 8B LoRA fine-tuning
-python3 src/run/train.py --config config/example_llama3.1_lora.yaml --mode train
-
-# Llama 3.1 8B QLoRA fine-tuning
-python3 src/run/train.py --config config/example_llama3.1_qlora.yaml --mode train
-
-# Llama 3.1 8B full fine-tuning
-python3 src/run/train.py --config config/example_llama3.1_full.yaml --mode train
-```
-
 &nbsp;
 
-&nbsp; -->
 
 
 ## Tutorials & Documentations 🔍
 1. [Getting Started](./docs/1_getting_started.md)
 2. [How to perform CRUD on FHIR](./docs/2_fhir_crud.md)
+3. [Hospital Data Synthesis](./docs/3_data_synthesis.md)
 
 &nbsp;
