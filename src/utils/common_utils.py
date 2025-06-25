@@ -1,5 +1,10 @@
-from registry import Hospital, Department, Doctor
-from utils import Information
+import pytz
+from typing import Optional, Union
+from datetime import datetime, timedelta
+
+import registry
+from registry import Hospital
+from utils import Information, log, colorstr
 
 
 
@@ -23,12 +28,12 @@ def padded_int(n: int, total_digit_l: int = 3) -> str:
 
 
 
-def to_dict(obj) -> dict:
+def to_dict(obj: Information) -> dict:
     """
     Convert an object to a dictionary representation.
 
     Args:
-        obj: The object to convert.
+        obj (Information): The object to convert.
 
     Returns:
         dict: A dictionary representation of the object.
@@ -115,3 +120,96 @@ def convert_obj_to_info(hospital_obj: Hospital) -> Information:
                 patient_info[patient_obj.name] = {**filtered_values3}
 
     return Information(metadata=metadata, department=department_info, doctor=doctor_info, patient=patient_info)
+
+
+
+def get_utc_offset(country_code: Optional[str] = None, 
+                        time_zone: Optional[str] = None) -> str:
+    """
+    Returns the current UTC offset (e.g., "+09:00") for a given country code or time zone.
+
+    Either `country_code` or `time_zone` must be provided. If the country has multiple time zones,
+    you should explicitly provide the `time_zone`.
+
+    Args:
+        country_code (Optional[str], optional): ISO 3166-1 alpha-2 country code (e.g., 'KR', 'US').
+        time_zone (Optional[str], optional): IANA time zone string (e.g., 'Asia/Seoul', 'America/New_York').
+
+    Returns:
+        str: The UTC offset of the specified time zone in the format "+HH:MM" or "-HH:MM".
+    """
+    assert not (country_code == None and time_zone == None), log("Either `country_code` or `time_zone` must be provided.", "error")
+    
+    if registry.COUNTRY_TIMEZONE_MAP is None:
+        registry.COUNTRY_TIMEZONE_MAP = dict(pytz.country_timezones)
+    
+    if country_code:
+        time_zones = registry.COUNTRY_TIMEZONE_MAP.get(country_code.upper())
+        time_zone = time_zone if len(time_zones) > 1 else time_zones[0]   # If the country has mulitple time zone, you should use `time_zone` argument
+    
+    time_zone = pytz.timezone(time_zone)
+    offset = datetime.now(time_zone).utcoffset()
+
+    # Convert offset to "+HH:MM" or "-HH:MM"
+    hours, remainder = divmod(offset.total_seconds(), 3600)
+    minutes = abs(remainder) // 60
+    return f'{int(hours):+03d}:{int(minutes):02d}'
+
+
+
+def convert_hours_to_hhmmss(hours: Union[int, float]) -> str:
+    """
+    Converts a decimal number of hours into HH:MM:SS format.
+
+    Args:
+        hours (Union[int, float]): A float or integer representing the number of hours.
+
+    Returns:
+        A string in the format "HH:MM:SS".
+    """
+    # Create a timedelta object from the given hours
+    td = timedelta(hours=hours)
+
+    # Extract total seconds from the timedelta object
+    total_seconds = int(td.total_seconds())
+
+    # Calculate hours, minutes, and seconds
+    h = total_seconds // 3600
+    m = (total_seconds % 3600) // 60
+    s = total_seconds % 60
+
+    # Format the output with zero-padding
+    return f'{h:02}:{m:02}:{s:02}'
+
+
+
+def get_iso_time(time_hour: Union[int, float],
+                 date: Optional[str] = None,
+                 utc_offset: Optional[str] = None) -> str:
+    """
+    Construct an ISO 8601 time string from a given hour, optional date, and optional UTC offset.
+
+    Args:
+        time_hour (Union[int, float]): Time expressed in hours (e.g., 9.5 → 09:30:00).
+        date (Optional[str], optional): Date string in 'YYYY-MM-DD' format. Defaults to today's date.
+        utc_offset (Optional[str], optional): UTC offset in '+HH:MM' or '-HH:MM' format. Defaults to no offset.
+
+    Returns:
+        str: ISO 8601 formatted datetime string.
+
+    Raises:
+        ValueError: If the `date` format is invalid.
+    """
+    if date == None:
+        date = datetime.today().strftime('%Y-%m-%d')
+    else:
+        try:
+            datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError(colorstr('red', f"Invalid date format: '{date}'. Expected format is 'YYYY-MM-DD'."))
+
+    time = convert_hours_to_hhmmss(time_hour)
+
+    if utc_offset:
+        return f'{date}T{time}{utc_offset}'
+    return f'{date}T{time}'

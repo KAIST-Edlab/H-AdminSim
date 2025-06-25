@@ -90,7 +90,7 @@ def get_files(path: str, ext: str = None) -> list[str]:
         ext (str, optional): Extension that you want to filter. Defaults to None.
 
     Raises:
-        ValueError: _description_
+        ValueError: If file does not exist.
 
     Returns:
         list[str]: List of file paths that match the given extension.
