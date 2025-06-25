@@ -15,7 +15,7 @@ seed: 9999
 fhir_url: http://localhost:8080/fhir
 
 # Data configs
-create_data_path: ./data  #  Path of data to create. We can set it to individual JSON files or a directory containing multiple JSON files.
+create_data_path: ./fhir_data  #  Path of data to create. We can set it to individual JSON files or a directory containing multiple JSON files.
 ```
 > * `create_data_path`: This argument is for the "create" operation. It can be set to a folder containing JSON files or to an individual JSON path.
 

@@ -12,9 +12,6 @@ __pycache__/
 # Shell scripts
 *.sh
 
-# Jupyter notebooks
-*.ipynb
-
 # CSV files
 *.csv
 
@@ -27,8 +24,6 @@ json*/
 data/
 config/
 .vscode/launch.json
-
-# Output folders
 output/*
-data_examples/*
+fhir_data/*
 synthetic_data/*
