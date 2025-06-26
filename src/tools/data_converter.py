@@ -233,8 +233,8 @@ class DataConverter:
             practitioner_id = sanitize_id(f"{hospital_name}-{patient_values['department']}-{doctor_name}")
             patient_id = sanitize_id(f"{hospital_name}-{patient_values['department']}-{patient_name}")
             participant = [
-                {"actor": {"reference": f"Practitioner/{practitioner_id}", "display": doctor_name}, "required": True, "status": "accepted"},
-                {"actor": {"reference": f"Patient/{patient_id}", "display": patient_name}, "required": True, "status": "accepted"}
+                {"actor": {"reference": f"Practitioner/{practitioner_id}", "display": doctor_name}, "status": "accepted"},
+                {"actor": {"reference": f"Patient/{patient_id}", "display": patient_name}, "status": "accepted"}
             ]
 
             # Filtering fixed schedule
