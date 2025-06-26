@@ -36,6 +36,7 @@ def main(args):
     if args.mode == 'create':
         is_file = os.path.isfile(config.create_data_path)
         files = [config.create_data_path] if is_file else get_files(config.create_data_path, ext='json')
+        error_files = list()
         
         for file in files:
             resource_data = json_load(file)
@@ -46,6 +47,12 @@ def main(args):
             response = fhir_manager.create(resource_type, resource_data)
             if  200 <= response.status_code < 300:
                 log(f"Created {resource_type} with ID {response.json().get('id')}")
+            else:
+                error_files.append(file)
+        
+        if len(error_files):
+            log(f'Error files during creating data: {error_files}', 'warning')
+
 
     elif args.mode == 'read':
         if not args.id or not args.resource_type:
