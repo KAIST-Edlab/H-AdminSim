@@ -30,7 +30,7 @@ def main(args):
     # Initialize data converter
     converter = DataConverter(config)
     try:
-        output = converter(args.output_dir)
+        output = converter(args.output_dir, args.sanity_check)
         log(f"Data conversion completed successfully", color=True)
     except Exception as e:
         log("Data conversion failed.", level='error')
@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
     parser.add_argument('-o', '--output_dir', type=str, required=True, help='Path to save FHIR-converted data')
+    parser.add_argument('--sanity_check', action='store_true', required=False, help='Check whether converted FHIR resources are unique')
     args = parser.parse_args()
 
     main(args)

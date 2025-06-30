@@ -77,6 +77,9 @@ You can convert the synthesized JSON data to FHIR format.
 ```bash
 # Converting command example
 python3 src/run/convert_to_fhir.py --config ${SYNTHETIC_DATA_FOLDER}/args.yaml --output_dir ${SYNTHETIC_DATA_FOLDER}/fhir_data
+
+# If you want to ensure whether the converted FHIR data is unique, you can use `--sanity_check` option
+python3 src/run/convert_to_fhir.py --config ${SYNTHETIC_DATA_FOLDER}/args.yaml --output_dir ${SYNTHETIC_DATA_FOLDER}/fhir_data --sanity_check
 ```
 Supported resource types:
 > - `Practitioner`

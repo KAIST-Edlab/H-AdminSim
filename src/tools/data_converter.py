@@ -2,7 +2,7 @@ import os
 from tqdm import tqdm
 from typing import Optional
 
-from utils import Information
+from utils import Information, log
 from utils.fhir_utils import sanitize_id
 from utils.filesys_utils import json_load, json_save_fast
 from utils.common_utils import (
@@ -23,7 +23,7 @@ class DataConverter:
     
 
     @staticmethod
-    def data_to_practitioner(data: dict, output_dir: Optional[str] = None) -> list[dict]:
+    def data_to_practitioner(data: dict, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[dict]:
         """
         Convert synthetic hospital data into `Practitioner` FHIR resources. 
 
@@ -32,6 +32,8 @@ class DataConverter:
             output_dir (Optional[str], optional): Directory path to save the converted Practitioner resources 
                                                   as `.fhir.json` files. If None, the resources are not saved to disk.
                                                   Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
 
         Returns:
             list[dict]: A list of converted FHIR Practitioner resource objects.
@@ -62,8 +64,11 @@ class DataConverter:
             practitioners.append(practitioner_obj)
 
             if save_dir:
+                save_path = os.path.join(save_dir, f'{practitioner_id}.fhir.json')
+                if sanity_check:
+                    assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
                 json_save_fast(
-                    os.path.join(save_dir, f'{practitioner_id}.fhir.json'),
+                    save_path,
                     practitioner_obj
                 )
         
@@ -71,7 +76,7 @@ class DataConverter:
 
 
     @staticmethod
-    def data_to_patient(data: dict, output_dir: Optional[str] = None) -> list[dict]:
+    def data_to_patient(data: dict, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[dict]:
         """
         Convert synthetic hospital data into `Patient` FHIR resources. 
 
@@ -80,6 +85,8 @@ class DataConverter:
             output_dir (Optional[str], optional): Directory path to save the converted Patient resources 
                                                   as `.fhir.json` files. If None, the resources are not saved to disk.
                                                   Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
 
         Returns:
             list[dict]: A list of converted FHIR Patient resource objects.
@@ -109,8 +116,11 @@ class DataConverter:
             patients.append(patient_obj)
 
             if save_dir:
+                save_path = os.path.join(save_dir, f'{patient_id}.fhir.json')
+                if sanity_check:
+                    assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
                 json_save_fast(
-                    os.path.join(save_dir, f'{patient_id}.fhir.json'),
+                    save_path,
                     patient_obj
                 )
         
@@ -118,7 +128,7 @@ class DataConverter:
 
 
     @staticmethod
-    def data_to_schedule(data: dict, output_dir: Optional[str] = None) -> list[dict]:
+    def data_to_schedule(data: dict, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[dict]:
         """
         Convert synthetic hospital data into `Schedule` FHIR resources. 
 
@@ -127,6 +137,8 @@ class DataConverter:
             output_dir (Optional[str], optional): Directory path to save the converted Schedule resources 
                                                   as `.fhir.json` files. If None, the resources are not saved to disk.
                                                   Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
 
         Returns:
             list[dict]: A list of converted FHIR Schedule resource objects.
@@ -160,8 +172,11 @@ class DataConverter:
             schedules.append(schedule_obj)
 
             if save_dir:
+                save_path = os.path.join(save_dir, f'{schedule_id}.fhir.json')
+                if sanity_check:
+                    assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
                 json_save_fast(
-                    os.path.join(save_dir, f'{schedule_id}.fhir.json'),
+                    save_path,
                     schedule_obj
                 )
 
@@ -169,7 +184,7 @@ class DataConverter:
 
 
     @staticmethod
-    def data_to_slot(data: dict, output_dir: Optional[str] = None) -> list[dict]:
+    def data_to_slot(data: dict, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[dict]:
         """
         Convert synthetic hospital data into `Slot` FHIR resources. 
 
@@ -178,6 +193,8 @@ class DataConverter:
             output_dir (Optional[str], optional): Directory path to save the converted Slot resources 
                                                   as `.fhir.json` files. If None, the resources are not saved to disk.
                                                   Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
 
         Returns:
             list[dict]: A list of converted FHIR Slot resource objects.
@@ -227,8 +244,11 @@ class DataConverter:
                 slots.append(slot_obj)
 
                 if save_dir:
+                    save_path = os.path.join(save_dir, f'{slot_id}.fhir.json')
+                    if sanity_check:
+                        assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
                     json_save_fast(
-                        os.path.join(save_dir, f'{slot_id}.fhir.json'),
+                        save_path,
                         slot_obj
                     )
             
@@ -250,8 +270,11 @@ class DataConverter:
                 slots.append(slot_obj)
             
                 if save_dir:
+                    save_path = os.path.join(save_dir, f'{slot_id}.fhir.json')
+                    if sanity_check:
+                        assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
                     json_save_fast(
-                        os.path.join(save_dir, f'{slot_id}.fhir.json'),
+                        save_path,
                         slot_obj
                     )
 
@@ -259,7 +282,7 @@ class DataConverter:
 
 
     @staticmethod
-    def data_to_appointment(data: dict, output_dir: Optional[str] = None) -> list[dict]:
+    def data_to_appointment(data: dict, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[dict]:
         """
         Convert synthetic hospital data into `Appointment` FHIR resources. 
 
@@ -268,6 +291,8 @@ class DataConverter:
             output_dir (Optional[str], optional): Directory path to save the converted Appointment resources 
                                                   as `.fhir.json` files. If None, the resources are not saved to disk.
                                                   Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
 
         Returns:
             list[dict]: A list of converted FHIR Appointment resource objects.
@@ -316,24 +341,39 @@ class DataConverter:
             appointments.append(appointment_obj)
 
             if save_dir:
+                save_path = os.path.join(save_dir, f'{appointment_id}.fhir.json')
+                if sanity_check:
+                    assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
                 json_save_fast(
-                    os.path.join(save_dir, f'{appointment_id}.fhir.json'),
+                    save_path,
                     appointment_obj
                 )
             
         return appointments
     
 
-    def __call__(self, output_dir):
+    def __call__(self, output_dir: Optional[str] = None, sanity_check: bool = False) -> Information:
+        """
+        Convert synthetic hospital data files into FHIR resources and optionally save them to disk.
+
+        Args:
+            output_dir (Optional[str], optional): Directory to save the converted FHIR resources as `.fhir.json` files.
+                                                  If None, the resources will not be saved. Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
+
+        Returns:
+            Information: An object containing the converted FHIR resources, including practitioners, schedules, slots, patients, and appointments.
+        """
         os.makedirs(output_dir, exist_ok=True)
         
         for data_file in tqdm(self.data_files, desc='Converting..'):
             data = json_load(data_file)
-            practitioners =  DataConverter.data_to_practitioner(data, output_dir)
-            schedules = DataConverter.data_to_schedule(data, output_dir)
-            slots = DataConverter.data_to_slot(data, output_dir)
-            patients =  DataConverter.data_to_patient(data, output_dir)
-            appointments =  DataConverter.data_to_appointment(data, output_dir)
+            practitioners =  DataConverter.data_to_practitioner(data, output_dir, sanity_check)
+            schedules = DataConverter.data_to_schedule(data, output_dir, sanity_check)
+            slots = DataConverter.data_to_slot(data, output_dir, sanity_check)
+            patients =  DataConverter.data_to_patient(data, output_dir, sanity_check)
+            appointments =  DataConverter.data_to_appointment(data, output_dir, sanity_check)
         
         return Information(
             practitioners=practitioners,
