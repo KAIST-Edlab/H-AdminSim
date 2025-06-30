@@ -3,7 +3,7 @@ from tqdm import tqdm
 from typing import Optional
 
 from utils import Information, log
-from utils.fhir_utils import sanitize_id
+from utils.fhir_utils import *
 from utils.filesys_utils import json_load, json_save_fast
 from utils.common_utils import (
     get_iso_time,
@@ -47,7 +47,7 @@ class DataConverter:
         practitioners = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = sanitize_id(f"{hospital_name}-{doctor_values['department']}-{doctor_name}")
+            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
             names = doctor_name.split()
             practitioner_obj = {
                 'resourceType': 'Practitioner',
@@ -100,7 +100,7 @@ class DataConverter:
         patients = list()
 
         for patient_name, patient_values in data['patient'].items():
-            patient_id = sanitize_id(f"{hospital_name}-{patient_values['department']}-{patient_name}")
+            patient_id = get_individual_id(hospital_name, patient_values['department'], patient_name)
             names = patient_name.split()
             patient_obj = {
                 'resourceType': 'Patient',
@@ -157,8 +157,8 @@ class DataConverter:
         schedules = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = sanitize_id(f"{hospital_name}-{doctor_values['department']}-{doctor_name}")
-            schedule_id = f'{practitioner_id}-schedule'
+            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
+            schedule_id = get_schedule_id(practitioner_id)
             schedule_obj = {
                 'resourceType': 'Schedule',
                 'id': schedule_id,
@@ -216,7 +216,7 @@ class DataConverter:
         slots = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = sanitize_id(f"{hospital_name}-{doctor_values['department']}-{doctor_name}")
+            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
 
             # Filtering fixed schedule
             fixed_schedule = []
@@ -229,7 +229,7 @@ class DataConverter:
             # Add slot as a `busy` status
             for seg in fixed_schedule:
                 st, tr = convert_segment_to_time(start_hour, end_hour, interval_hour, [seg])
-                slot_id = f'{practitioner_id}-slot{seg}'
+                slot_id = get_slot_id(practitioner_id, seg)
                 slot_obj = {
                     'resourceType': 'Slot',
                     'id': slot_id,
@@ -254,7 +254,7 @@ class DataConverter:
             
             # Add slot as a `free` status
             for seg in free_schedule:
-                slot_id = f'{practitioner_id}-slot{seg}'
+                slot_id = get_slot_id(practitioner_id, seg)
                 st, tr = convert_segment_to_time(start_hour, end_hour, interval_hour, [seg])
                 slot_obj = {
                     'resourceType': 'Slot',
@@ -314,8 +314,8 @@ class DataConverter:
 
         for patient_name, patient_values in data['patient'].items():
             doctor_name = patient_values['attending_physician']
-            practitioner_id = sanitize_id(f"{hospital_name}-{patient_values['department']}-{doctor_name}")
-            patient_id = sanitize_id(f"{hospital_name}-{patient_values['department']}-{patient_name}")
+            practitioner_id = get_individual_id(hospital_name, patient_values['department'], doctor_name)
+            patient_id = get_individual_id(hospital_name, patient_values['department'], patient_name)
             participant = [
                 {"actor": {"reference": f"Practitioner/{practitioner_id}", "display": doctor_name}, "status": "accepted"},
                 {"actor": {"reference": f"Patient/{patient_id}", "display": patient_name}, "status": "accepted"}
@@ -324,7 +324,7 @@ class DataConverter:
             # Filtering fixed schedule
             schedule_time_range = patient_values['schedule']
             schedule_segments = convert_time_to_segment(start_hour, end_hour, interval_hour, schedule_time_range)
-            appointment_id = f'{practitioner_id}-appn{schedule_segments[0]}-{schedule_segments[-1]}'
+            appointment_id = get_appointment_id(practitioner_id, schedule_segments[0], schedule_segments[-1])
             appointment_obj = {
                 'resourceType': 'Appointment',
                 'id': appointment_id,
