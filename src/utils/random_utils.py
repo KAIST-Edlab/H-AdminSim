@@ -1,3 +1,4 @@
+import os
 import uuid
 import random
 
@@ -39,9 +40,9 @@ def generate_random_names(n: int, first_name_file: str, last_name_file: str) -> 
         list[str]: List of randomly generated names in the format "First Last".
     """
     if registry.FIRST_NAMES is None:
-        registry.FIRST_NAMES = [word.capitalize() for word in txt_load(first_name_file).split('\n')]
+        registry.FIRST_NAMES = [word.capitalize() for word in txt_load(first_name_file).split('\n') if word.strip()]
     if registry.LAST_NAMES is None:
-        registry.LAST_NAMES = [word.capitalize() for word in txt_load(last_name_file).split('\n')]
+        registry.LAST_NAMES = [word.capitalize() for word in txt_load(last_name_file).split('\n') if word.strip()]
 
     # Ensure unique names
     names = set()
@@ -70,3 +71,30 @@ def generate_random_prob(has_schedule_prob: float, coverage_min: float, coverage
         return 0.0
 
     return random.uniform(coverage_min, coverage_max)
+
+
+
+def generate_random_symptoms(department: str, asset_folder: str) -> str:
+    """
+    Generate a string of random symptom from pre-defined data file.
+
+    Args:
+        department (str): A name of hospital department.
+        asset_folder (str): A directory of pre-defined symptom data.
+
+    Returns:
+        str: A randomly selected symptom.
+    """
+    if not len(registry.SYMPTOM_MAP):
+        for root, _, files in os.walk(asset_folder):
+            for file in files:
+                if file.endswith(".txt"):
+                    dep = os.path.splitext(os.path.basename(file))[0].lower()
+                    registry.SYMPTOM_MAP[dep] = [symptom for symptom in txt_load(os.path.join(root, file)).split('\n') if symptom.strip()]
+                    
+        print(registry.SYMPTOM_MAP)
+    
+    if department in registry.SYMPTOM_MAP:
+        return random.choice(registry.SYMPTOM_MAP[department])
+    
+    return '${PLACEHOLDER}'

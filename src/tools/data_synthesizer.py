@@ -191,7 +191,7 @@ class DataSynthesizer:
         """
         if file_path:
             if registry.HOSPITALS is None:
-                registry.HOSPITALS = [word.capitalize() for word in txt_load(file_path).split('\n')]
+                registry.HOSPITALS = [word.capitalize() for word in txt_load(file_path).split('\n') if word.strip()]
             return [f"{random.choice(registry.HOSPITALS)}" for _ in range(hospital_n)]
         
         zfill_l = len(str(hospital_n))
@@ -213,7 +213,7 @@ class DataSynthesizer:
         """
         if file_path:
             if registry.DEPARTMENTS is None:
-                registry.DEPARTMENTS = [word.capitalize() for word in txt_load(file_path).split('\n')]
+                registry.DEPARTMENTS = [word.capitalize() for word in txt_load(file_path).split('\n') if word.strip()]
             return [f"{random.choice(registry.DEPARTMENTS)}" for _ in range(department_n)]
         zfill_l = len(str(department_n))
         return [f"department_{padded_int(i, zfill_l)}" for i in range(department_n)]
