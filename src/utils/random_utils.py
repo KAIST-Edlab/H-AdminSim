@@ -1,5 +1,6 @@
 import uuid
 import random
+from typing import Tuple
 from datetime import datetime, timedelta
 
 import registry
@@ -28,14 +29,16 @@ def random_uuid(is_develop: bool = False) -> str:
 
 
 
-def generate_random_names(n: int, first_name_file: str, last_name_file: str) -> list[str]:
+def generate_random_names(n: int, 
+                          first_name_file: str = 'asset/names/firstname.txt',
+                          last_name_file: str = 'asset/names/lastname.txt') -> list[str]:
     """
     Generate a list of random names by combining first and last names from specified files.
 
     Args:
         n (int): Number of random names to generate.
-        first_name_file (str): Path to the file containing first names.
-        last_name_file (str): Path to the file containing last names.
+        first_name_file (str): Path to the file containing first names. Defaults to 'asset/names/firstname.txt'.
+        last_name_file (str): Path to the file containing last names. Defaults to 'asset/names/lastname.txt'.
 
     Returns:
         list[str]: List of randomly generated names in the format "First Last".
@@ -75,13 +78,15 @@ def generate_random_prob(has_schedule_prob: float, coverage_min: float, coverage
 
 
 
-def generate_random_symptom(department: str, symptom_file_path: str, verbose: bool = True) -> str:
+def generate_random_symptom(department: str, 
+                            symptom_file_path: str = './asset/departments/symptom.json',
+                            verbose: bool = True) -> str:
     """
     Generate a string of random symptom from pre-defined data file.
 
     Args:
         department (str): A name of hospital department.
-        symptom_file_path (str): A path of pre-defined symptom data.
+        symptom_file_path (str): A path of pre-defined symptom data. Defaults to './asset/departments/symptom.json'.
         verbose (bool): If True, print a warning message when no matching department is found. Defaults to True.
 
     Returns:
@@ -177,3 +182,33 @@ def generate_random_code(category: str) -> str:
         return random.choice(['mobile', 'work'])
     elif category == 'gender':
         return random.choice(['male', 'female'])
+    
+
+
+def generate_random_specialty(department: str, 
+                              specialty_path: str = 'asset/departments/department.json', 
+                              verbose: bool = True) -> Tuple[str, str]:
+    """
+    Generate a random specialty and its corresponding code for a given department.
+
+    Args:
+        department (str): The name of the department to look up specialties for.
+        specialty_path (str, optional): Path to the JSON file containing department-specialty mappings.
+                                        Defaults to 'asset/departments/department.json'.
+        verbose (bool, optional): Whether to log a warning message if the department is not found.
+                                  Defaults to True.
+
+    Returns:
+        Tuple[str, str]: A tuple containing a randomly selected specialty (str) and its code (int).
+                         If the department is not found, returns ('${PLACEHOLDER}', '${PLACEHOLDER}').
+    """
+    if registry.SPECIALTIES is None:
+        registry.SPECIALTIES = json_load(specialty_path)
+    
+    if department in registry.SPECIALTIES:
+        index = random.choice(range(len(registry.SPECIALTIES[department]['specialty'])))
+        return registry.SPECIALTIES[department]['specialty'][index], f"{registry.SPECIALTIES[department]['code']}-{index}"
+    
+    if verbose:
+        log(f'No matched department {department}. `${{PLACEHOLDER}}` string will return.', 'warning')
+    return '${PLACEHOLDER}', '${PLACEHOLDER}'

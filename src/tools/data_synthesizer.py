@@ -15,6 +15,7 @@ from utils.random_utils import (
     generate_random_telecom,
     generate_random_date,
     generate_random_code,
+    generate_random_specialty,
 )
 
 
@@ -136,8 +137,13 @@ class DataSynthesizer:
                         config.hospital_data.schedule_coverage_ratio.max
                     )
                 )
+                specialty, code = generate_random_specialty(department)
                 doctor_info[doctor] = {
                     'department': department,
+                    'specialty': {
+                        'name': specialty,
+                        'code': code,
+                    },
                     'schedule': schedule_times,
                     'gender': generate_random_code('gender'),
                     'telecom': [{
