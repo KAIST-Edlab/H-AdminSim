@@ -23,5 +23,30 @@
     "Spine Surgery",
     "Sports Medicine",
     "Joint Replacement"
+  ],
+  "pediatrics": [
+    "Neonatology",
+    "Pediatric Cardiology",
+    "Pediatric Endocrinology"
+  ],
+  "psychiatry": [
+    "Child and Adolescent Psychiatry",
+    "Geriatric Psychiatry",
+    "Addiction Psychiatry"
+  ],
+  "oncology": [
+    "Medical Oncology",
+    "Radiation Oncology",
+    "Surgical Oncology"
+  ],
+  "ophthalmology": [
+    "Retina and Vitreous",
+    "Cornea and External Disease",
+    "Glaucoma"
+  ],
+  "pulmonology": [
+    "Interstitial Lung Disease",
+    "Sleep Medicine",
+    "Pulmonary Hypertension"
   ]
 }
