@@ -76,6 +76,62 @@ class DataConverter:
                 )
         
         return practitioners
+    
+
+    @staticmethod
+    def data_to_practitionerrole(data: dict, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[dict]:
+        """
+        Convert synthetic hospital data into `PractitionerRole` FHIR resources. 
+
+        Args:
+            data (dict): Synthetic hospital data containing doctor information.
+            output_dir (Optional[str], optional): Directory path to save the converted PractitionerRole resources 
+                                                  as `.fhir.json` files. If None, the resources are not saved to disk.
+                                                  Defaults to None.
+            sanity_check (bool, optional): If True, performs a sanity check to ensure the uniqueness of the generated FHIR data.
+                                           This only applies when output_dir is specified. Defaults to False.
+
+        Returns:
+            list[dict]: A list of converted FHIR PractitionerRole resource objects.
+        """
+        save_dir = None
+        if output_dir:
+            os.makedirs(os.path.join(output_dir, 'practitionerrole'), exist_ok=True)
+            save_dir = os.path.join(output_dir, 'practitionerrole')
+        
+        hospital_name = data.get('metadata')['hospital_name']
+        practitionerroles = list()
+
+        for doctor_name, doctor_values in data['doctor'].items():
+            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
+            practitionerrole_id = get_practitionerrole_id(practitioner_id)
+            practitionerrole_obj = {
+                'resourceType': 'PractitionerRole',
+                'id': practitionerrole_id,
+                'active': True,
+                'specialty': [
+                    {
+                        'coding': [{
+                            'code': doctor_values['specialty']['code'],
+                            'display': doctor_values['specialty']['name']
+                        }],
+                        'text': doctor_values['department']
+                    }
+                ],
+                'practitioner': {'reference': f'Practitioner/{practitioner_id}'}
+            }
+            practitionerroles.append(practitionerrole_obj)
+
+            if save_dir:
+                save_path = os.path.join(save_dir, f'{practitionerrole_id}.fhir.json')
+                if sanity_check:
+                    assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
+                json_save_fast(
+                    save_path,
+                    practitionerrole_obj
+                )
+        
+        return practitionerroles
 
 
     @staticmethod
@@ -376,6 +432,7 @@ class DataConverter:
         for data_file in tqdm(self.data_files, desc='Converting..'):
             data = json_load(data_file)
             practitioners =  DataConverter.data_to_practitioner(data, output_dir, sanity_check)
+            practitionerroles =  DataConverter.data_to_practitionerrole(data, output_dir, sanity_check)
             schedules = DataConverter.data_to_schedule(data, output_dir, sanity_check)
             slots = DataConverter.data_to_slot(data, output_dir, sanity_check)
             patients =  DataConverter.data_to_patient(data, output_dir, sanity_check)
@@ -383,6 +440,7 @@ class DataConverter:
         
         return Information(
             practitioners=practitioners,
+            practitionerrole=practitionerroles,
             schedules=schedules,
             slots=slots,
             patients=patients,

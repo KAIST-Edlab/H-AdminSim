@@ -34,6 +34,20 @@ def get_individual_id(hospital: str, department: str, individual_name: str) -> s
 
 
 
+def get_practitionerrole_id(individual_id: str) -> str:
+    """
+    Make a practitioner role ID for an individual.
+
+    Args:
+        individual_id (str): An individual ID.
+
+    Returns:
+        str: A practitioner role ID.
+    """
+    return f'{individual_id}-role'
+
+
+
 def get_schedule_id(individual_id: str) -> str:
     """
     Make a schedule ID for an individual.
