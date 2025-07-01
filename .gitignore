@@ -26,4 +26,4 @@ config/
 .vscode/launch.json
 output/*
 fhir_data/*
-synthetic_data/*
+synthetic_data*/*
