@@ -414,7 +414,7 @@ class DataConverter:
         return appointments
     
 
-    def __call__(self, output_dir: Optional[str] = None, sanity_check: bool = False) -> Information:
+    def __call__(self, output_dir: Optional[str] = None, sanity_check: bool = False) -> list[Information]:
         """
         Convert synthetic hospital data files into FHIR resources and optionally save them to disk.
 
@@ -425,24 +425,28 @@ class DataConverter:
                                            This only applies when output_dir is specified. Defaults to False.
 
         Returns:
-            Information: An object containing the converted FHIR resources, including practitioners, schedules, slots, patients, and appointments.
+            list[Information]: An object containing the converted FHIR resources, including practitioners, schedules, slots, patients, and appointments.
         """
         os.makedirs(output_dir, exist_ok=True)
+        all_resources = list()
         
         for data_file in tqdm(self.data_files, desc='Converting..'):
             data = json_load(data_file)
-            practitioners =  DataConverter.data_to_practitioner(data, output_dir, sanity_check)
-            practitionerroles =  DataConverter.data_to_practitionerrole(data, output_dir, sanity_check)
+            practitioners = DataConverter.data_to_practitioner(data, output_dir, sanity_check)
+            practitionerroles = DataConverter.data_to_practitionerrole(data, output_dir, sanity_check)
             schedules = DataConverter.data_to_schedule(data, output_dir, sanity_check)
             slots = DataConverter.data_to_slot(data, output_dir, sanity_check)
-            patients =  DataConverter.data_to_patient(data, output_dir, sanity_check)
-            appointments =  DataConverter.data_to_appointment(data, output_dir, sanity_check)
+            patients = DataConverter.data_to_patient(data, output_dir, sanity_check)
+            appointments = DataConverter.data_to_appointment(data, output_dir, sanity_check)
+
+            information = Information(
+                practitioners=practitioners,
+                practitionerrole=practitionerroles,
+                schedules=schedules,
+                slots=slots,
+                patients=patients,
+                appointments=appointments
+            )
+            all_resources.append(information)
         
-        return Information(
-            practitioners=practitioners,
-            practitionerrole=practitionerroles,
-            schedules=schedules,
-            slots=slots,
-            patients=patients,
-            appointments=appointments
-        )
+        return all_resources

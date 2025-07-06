@@ -33,7 +33,7 @@ class DataSynthesizer:
     
     def synthesize(self,
                    return_obj: bool = False,
-                   sanity_check: bool = False) -> Tuple[Information, Hospital]:
+                   sanity_check: bool = False) -> Tuple[list[Information], list[Hospital]]:
         """
         Synthesize hospital data based on the configuration settings.
 
@@ -46,12 +46,13 @@ class DataSynthesizer:
             e: Exception if data synthesis fails.
 
         Returns:
-            Tuple[Information, Hospital]: A tuple containing the synthesized hospital data as an Information object and a Hospital object.
+            Tuple[list[Information], list[Hospital]]: A tuple containing the synthesized hospital data as an Information object and a Hospital object.
         """
         if sanity_check:
             return_obj = True
 
         try:
+            all_data, all_hospitals = list(), list()
             hospitals = DataSynthesizer.hospital_list_generator(self._config.hospital_data.hospital_n)
             for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
                 data = DataSynthesizer.define_hospital_info(self._config, hospital)
@@ -60,8 +61,10 @@ class DataSynthesizer:
                     new_data = convert_obj_to_info(hospital_obj)
                     assert to_dict(data) == to_dict(new_data)
                 json_save_fast(self._data_save_dir / f'hospital_{padded_int(i, len(str(self._n)))}.json', to_dict(data))
+                all_data.append(data)
+                all_hospitals.append(hospital_obj)
             log(f"Total {len(hospitals)} data synthesizing completed. Path: `{self._data_save_dir}`", color=True)
-            return data, hospital_obj
+            return all_data, all_hospitals
         
         except Exception as e:
             log(f"Data synthesizing failed: {e}", level='error')
