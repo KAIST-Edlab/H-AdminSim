@@ -1,11 +1,9 @@
-import os, sys
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from typing import List, Tuple, Optional
 
+from utils import log
 from utils.image_preprocess_utils import *
 
 
@@ -14,6 +12,8 @@ class GeminiClient:
     def __init__(self, model: str):
         self._init_environment()
         self.model = model
+        self.chat = None
+        self._multi_turn_chat_already_set = False
 
 
     def _init_environment(self):
@@ -23,10 +23,17 @@ class GeminiClient:
         load_dotenv(override=True)
         self.client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY", None))
 
-    
+
+    def reset_history(self):
+        """
+        Reset the conversation history.
+        """
+        self.chat = None
+        self._multi_turn_chat_already_set = False
+
+
     def __make_payload(self,
                        user_prompt: str,
-                       system_prompt: Optional[str] = None,
                        image_path: Optional[str] = None,
                        image_size: Optional[Tuple[int]] = None) -> List[types.Content]:
         """
@@ -34,7 +41,6 @@ class GeminiClient:
 
         Args:
             user_prompt (str): User prompt.
-            system_prompt (Optional[str], optional): System prompt. Defaults to None.
             image_path (Optional[str], optional): Image path if you need to send image. Defaults to None.
             image_size (Optional[Tuple[int]], optional): Image size to be resized. Defaults to None.
 
@@ -42,14 +48,6 @@ class GeminiClient:
             List[types.Content]: Payload including prompts and image data.
         """
         payloads = list()    
-
-        # System prompt that applied globally
-        if system_prompt:
-            system_content = types.Content(
-                role='model',
-                parts=[types.Part.from_text(text=system_prompt)]
-            )
-            payloads.append(system_content)
         
         # User prompts
         user_content = types.Content(
@@ -74,7 +72,8 @@ class GeminiClient:
                  system_prompt: Optional[str] = None,
                  image_path: Optional[str] = None,
                  image_size:Optional[Tuple[int]] = None,
-                 **kwargs) -> dict:
+                 using_multi_turn: bool = False,
+                 **kwargs) -> str:
         """
         Sends a chat completion request to the model with optional image input and system prompt.
 
@@ -83,42 +82,51 @@ class GeminiClient:
             system_prompt (Optional[str], optional): An optional system-level prompt to set context or behavior. Defaults to None.
             image_path (Optional[str], optional): Path to an image file to be included in the prompt. Defaults to None.
             image_size (Optional[Tuple[int]], optional): The target image size in (width, height) format, if resizing is needed. Defaults to None.
+            using_multi_turn (bool): Whether to structure it as multi-turn. Defaults to False.
 
         Raises:
             FileNotFoundError: If `image_path` is provided but the file does not exist.
             e: Any exception raised during the API call is re-raised.
 
         Returns:
-            dict: The content of the model's response message.
+            str: The model's response message.
         """
         if image_path and not os.path.exists(image_path):
             raise FileNotFoundError
-        
+    
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=self.__make_payload(user_prompt, system_prompt, image_path, image_size),
-                **kwargs
-            )
+            if using_multi_turn:
+                if self._multi_turn_chat_already_set and system_prompt:
+                    log('Since the initial system prompt was already set, the current system prompt is ignored.', 'warning')
+                    system_prompt = None
+
+                if not self.chat:
+                    self.chat = self.client.chats.create(
+                        model=self.model,
+                        config=types.GenerateContentConfig(system_instruction=system_prompt) if system_prompt else None,
+                    )
+                    self._multi_turn_chat_already_set = True
+                
+                # User prompt and model response
+                payloads = self.__make_payload(user_prompt, image_path, image_size)
+                response = self.chat.send_message(payloads[0].parts)
+
+            else:
+                # To ensure empty history
+                self.reset_history()
+
+                # User prompt
+                payloads = self.__make_payload(user_prompt, image_path, image_size)
+                
+                # System prompt and model response
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=payloads,
+                    config=types.GenerateContentConfig(system_instruction=system_prompt) if system_prompt else None,
+                    **kwargs
+                )
+
             return response.text
         
         except Exception as e:
             raise e
-        
-
-
-if __name__ == "__main__":
-    model = "gemini-2.5-flash-preview-05-20"
-    user_prompt = '위 이미지를 아래의 json 형식으로 정리해줘. 만약 메뉴판에 분류가 있을 경우에만 너가 구분 되도록 파싱해줘\n* Explanation: 음식에 대한 설명을 30자 내외로 간단하게 알려줘.\n* Ingredients: 음식의 주요 성분은 너가 추측해서 알려줘.\n\n형식: ${메뉴명}: {"price": ${가격}, "explanation": ${간단한설명}, "ingredients": ${음식주요성분}}'
-    system_prompt = '너는 메뉴판을 보고 메뉴의 종류를 잘 파싱하는 모델이야'
-    image_path = 'assets/testset/1.jpg'
-    image_size = (960, 960)
-
-    client = GeminiClient(model)
-    output = client(
-        user_prompt, 
-        system_prompt, 
-        image_path,
-        image_size,
-    )
-    print(output)
