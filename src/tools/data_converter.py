@@ -4,7 +4,7 @@ from typing import Optional
 
 from utils import Information, log
 from utils.fhir_utils import *
-from utils.filesys_utils import json_load, json_save_fast
+from utils.filesys_utils import json_load, json_save_fast, get_files
 from utils.common_utils import (
     get_iso_time,
     get_utc_offset,
@@ -19,7 +19,7 @@ class DataConverter:
         # Initialize configuration
         self.fhir_url = config.fhir_url
         data_dir = os.path.join(config.project, config.data_name, 'data')
-        self.data_files = [os.path.join(data_dir, file) for file in os.listdir(data_dir) if file.endswith('json')]
+        self.data_files = get_files(data_dir, ext='json')
     
 
     @staticmethod
