@@ -1,0 +1,15 @@
+Below are the patient's symptoms and the list of medical departments available at the hospital.
+Read the patient's symptoms and provide the single most appropriate department the patient should visit.
+Answer with only one department name, following the format shown in the examples below.
+
+Answer format examples:
+* Answer: 1. orthopedics
+* Answer: 4. neurology
+* Answer: 3. oncology
+
+
+
+Patient symptoms: {SYMPTOM}
+
+Options:
+{OPTIONS}
