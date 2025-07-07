@@ -24,10 +24,10 @@ class GPTClient:
 
     
     def __make_payload(self,
-                      user_prompt: str,
-                      system_prompt: Optional[str] = None,
-                      image_path: Optional[str] = None,
-                      image_size: Optional[Tuple[int]] = None) -> List[dict]:
+                       user_prompt: str,
+                       system_prompt: Optional[str] = None,
+                       image_path: Optional[str] = None,
+                       image_size: Optional[Tuple[int]] = None) -> List[dict]:
         """
         Create a payload for API calls to the GPT model.
 
@@ -64,17 +64,18 @@ class GPTClient:
                     }
                 }
             )
+        
         payloads.append(user_contents)
         
         return payloads
 
 
     def __call__(self,
-                   user_prompt: str,
-                   system_prompt: Optional[str] = None,
-                   image_path: Optional[str] = None,
-                   image_size: Optional[Tuple[int]] = None,
-                   **kwargs) -> dict:
+                 user_prompt: str,
+                 system_prompt: Optional[str] = None,
+                 image_path: Optional[str] = None,
+                 image_size: Optional[Tuple[int]] = None,
+                 **kwargs) -> dict:
         """
         Sends a chat completion request to the model with optional image input and system prompt.
 

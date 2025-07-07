@@ -25,10 +25,10 @@ class GeminiClient:
 
     
     def __make_payload(self,
-                      user_prompt: str,
-                      system_prompt: Optional[str] = None,
-                      image_path: Optional[str] = None,
-                      image_size: Optional[Tuple[int]] = None) -> List[types.Content]:
+                       user_prompt: str,
+                       system_prompt: Optional[str] = None,
+                       image_path: Optional[str] = None,
+                       image_size: Optional[Tuple[int]] = None) -> List[types.Content]:
         """
         Create a payload for API calls to the Gemini model.
 
@@ -63,17 +63,18 @@ class GeminiClient:
             user_content.parts.append(
                 types.Part.from_bytes(data=bytes_image, mime_type=f'image/{extension}')
             )
+        
         payloads.append(user_content)
         
         return payloads
 
 
     def __call__(self,
-                   user_prompt: str,
-                   system_prompt: Optional[str] = None,
-                   image_path: Optional[str] = None,
-                   image_size:Optional[Tuple[int]] = None,
-                   **kwargs) -> dict:
+                 user_prompt: str,
+                 system_prompt: Optional[str] = None,
+                 image_path: Optional[str] = None,
+                 image_size:Optional[Tuple[int]] = None,
+                 **kwargs) -> dict:
         """
         Sends a chat completion request to the model with optional image input and system prompt.
 
