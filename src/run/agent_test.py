@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from tasks import *
 from utils import log
-from utils.filesys_utils import json_load, get_files
+from utils.filesys_utils import json_load, json_save_fast, yaml_save, get_files
 
 
 
@@ -29,19 +29,14 @@ def main(args):
 
     # Initialize tasks
     queue = list()
-    agent_results = dict()
     if 'department' in args.type:
         queue.append(AssignDepartment(config))
-        agent_results['department'] = list()
     if 'schedule' in args.type:
         queue.append(AssignSchedule(config))
-        agent_results['schedule'] = list()
     if 'fhir_resource' in args.type:
         queue.append(MakeFHIRResource(config))
-        agent_results['fhir_resource'] = list()
-    if 'fhire_api' in args.type:
+    if 'fhir_api' in args.type:
         queue.append(MakeFHIRAPI(config))
-        agent_results['fhire_api'] = list()
 
     # Initialize agent test data
     is_file = os.path.isfile(config.agent_test_data)
@@ -50,26 +45,41 @@ def main(args):
 
     # Execute agent tasks
     try:
-        for _ in range(len(queue)):
-            task = queue.pop(0)
-            log(f'{task.name} task started..', color=True)
-            for agent_test_data in all_agent_test_data:
+        os.makedirs(args.output_dir, exist_ok=True)
+        yaml_save(os.path.join(args.output_dir, 'args.yaml'), config)
+        for i, agent_test_data in enumerate(all_agent_test_data):
+            agent_results = dict()
+            basename = os.path.splitext(os.path.basename(agent_test_data_files[i]))[0]
+            for task in queue:
+                log(f'{basename} - {task.name} task started..', color=True)
                 results = task(agent_test_data, agent_results)
-                correctness = [gt == pred for gt, pred in zip(results['gt'], results['pred'])]
-                accuracy = sum(correctness) / len(correctness)
-                agent_results[task.name].append(results)
-                log(f'Accuracy: {accuracy:.3f}, length: {len(correctness)}')
+                
+                if task.name == 'department':
+                    correctness = [gt == pred for gt, pred in zip(results['gt'], results['pred'])]
+                    accuracy = sum(correctness) / len(correctness)
+                    log(f'Result - accuracy: {accuracy:.3f}, length: {len(correctness)}')
+                elif task.name == 'schedule':
+                    correctness = results['sanity']
+                    accuracy = sum(correctness) / len(correctness)
+                    log(f'Result - accuracy: {accuracy:.3f}, length: {len(correctness)}')
 
+                agent_results[task.name] = results
+
+            json_save_fast(os.path.join(args.output_dir, f'{basename}_result.json'), agent_results)
+            
         log(f"Agent completed the tasks successfully", color=True)
+    
     except Exception as e:
         log("Error occured while execute the tasks.", level='error')
         raise e
     
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
     parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['department', 'schedule', 'fhir_resource', 'fhir_api'], help='Task types you want to execute (you can specify multiple)')
+    parser.add_argument('-o', '--output_dir', type=str, required=True, help='Path to save agent test results')
     args = parser.parse_args()
 
     main(args)
