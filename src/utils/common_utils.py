@@ -125,7 +125,7 @@ def convert_obj_to_info(hospital_obj: Hospital) -> Information:
 
 
 def get_utc_offset(country_code: Optional[str] = None, 
-                        time_zone: Optional[str] = None) -> str:
+                   time_zone: Optional[str] = None) -> str:
     """
     Returns the current UTC offset (e.g., "+09:00") for a given country code or time zone.
 
