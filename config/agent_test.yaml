@@ -1,5 +1,5 @@
 # LLM model
-model: gpt-4o-mini # gemini-2.5-flash-preview-05-20
+model: gemini-2.5-flash-preview-05-20
 
 # Agent test data and converted FHIR data folder
 agent_test_data: synthetic_data/hospital_easy_small/agent_data
@@ -15,3 +15,6 @@ schedule_task:
 fhir_resource_task:
     system_prompt: asset/prompts/fhir_resource_system.txt
     user_prompt: asset/prompts/fhir_resource_user.txt
+fhir_api_task:
+    system_prompt: asset/prompts/fhir_api_system.txt
+    user_prompt: asset/prompts/fhir_api_user.txt
