@@ -4,6 +4,7 @@ model: gemini-2.5-flash-preview-05-20
 # Agent test data and converted FHIR data folder
 agent_test_data: synthetic_data/hospital_easy_small/agent_data
 fhir_data: synthetic_data/hospital_easy_small/fhir_data
+fhir_url: http://localhost:8080/fhir
 
 # Prompt paths
 department_task:
