@@ -39,7 +39,7 @@ hospital_data:
         max_chunk_size: 4         # Maximum number of consecutive segments per appointment (e.g., max duration = interval_hour * max_chunk_size).
         min: 0.9
         max: 1.0
-
+    priority: [0.1, 0.2, 0.7]  # List of emergence probabilities for each patient priority level. For example, [0.2, 0.4, 0.4] indicates that a priority 1 patient emerges with probability 0.2, and priority 2 and 3 patients with probability 0.4 each. Also, you can set to any length.
 ```
 > * `project`, `data_name`: The generated data will be saved to the path `${project}/${data_name}`. This path is generated automatically, so you don't need to create it manually.
 > * `hospital_n`: Number of hosptial data you want to generate.
@@ -52,6 +52,7 @@ hospital_data:
 > * `schedule_coverage_ratio`: When doctors have at least one fixed schedule, the proportion of their working hours occupied by these fixed schedules.
 > * `appointment_coverage_ratio`: Among doctors' available hours excluding fixed schedules, the proportion allocated to patient appointments.
 > * `max_chunk_size`: Maximum duration of an individual patient appointment (e.g., max duration = interval_hour * max_chunk_size).
+> * `priority`: List of emergence probabilities for each patient priority level. For example, [0.2, 0.4, 0.4] indicates that a priority 1 patient emerges with probability 0.2, and priority 2 and 3 patients with probability 0.4 each. Also, you can set to any length.
 
 
 
