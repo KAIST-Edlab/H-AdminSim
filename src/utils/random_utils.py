@@ -212,3 +212,31 @@ def generate_random_specialty(department: str,
     if verbose:
         log(f'No matched department {department}. `${{PLACEHOLDER}}` string will return.', 'warning')
     return '${PLACEHOLDER}', '${PLACEHOLDER}'
+
+
+
+def generate_random_priority_and_flexibility(priority_probabilities: list[float],
+                                             priority_flexibility_prob: list[float]) -> Tuple[int, str]:
+    """
+    Generate a priority and its flexibility based on the given probability distribution.
+
+    Args:
+        priority_probabilities (list[float]): A list of probabilities for each priority.
+                                              The index represents the priority level.
+        priority_flexibility_prob (list[float]): A list of probabilities that each priority level is flexible.
+                                                 The index represents the priority level.
+
+    Returns:
+        int: The generated priority level.
+        str: The flexibility of the priority, either 'flexible' or 'fixed'.
+
+    Raises:
+        AssertionError: If the sum of the priority probabilities is not 1.
+    """
+
+    assert round(sum(priority_probabilities), 4) == 1, log(f"The sum of the probabilities would be a 1, but got {priority_probabilities}", "error")
+
+    priority = random.choices(population=list(range(len(priority_probabilities))), weights=priority_probabilities, k=1)[0]
+    flexibility = "flexible" if random.random() < priority_flexibility_prob[priority] else "fixed"
+
+    return priority, flexibility

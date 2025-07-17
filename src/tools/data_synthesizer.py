@@ -16,6 +16,7 @@ from utils.random_utils import (
     generate_random_date,
     generate_random_code,
     generate_random_specialty,
+    generate_random_priority_and_flexibility,
 )
 
 
@@ -171,10 +172,16 @@ class DataSynthesizer:
                 )
                 patients = DataSynthesizer.name_list_generator(len(appointments))
                 for patient, appointment in zip(patients, appointments):
+                    priority, flexibility = generate_random_priority_and_flexibility(
+                        config.hospital_data.priority_distribution,
+                        config.hospital_data.priority_flexibility_prob
+                    )
                     patient_info[patient] = {
                         'department': department,
                         'attending_physician': doctor,
                         'schedule': appointment,
+                        'priority': priority,
+                        'flexibility': flexibility,
                         'gender': generate_random_code('gender'),
                         'telecom': [{
                             'system': 'phone',
