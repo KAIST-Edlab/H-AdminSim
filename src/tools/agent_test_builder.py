@@ -83,6 +83,8 @@ class AgentTestBuilder:
                 'symptom': generate_random_symptom(department, symptom_file_path),
                 'constraint': {
                     'duration': float(Decimal(str(schedule_time_range[-1])) - Decimal(str(schedule_time_range[0]))),
+                    'priority': patient_values['priority'],
+                    'flexibility': patient_values['flexibility'],
                     # 'final_time_to_leave': {  # TODO: Finalize this field
                     #     'time': schedule_time_range[-1],
                     #     'segment': [schedule_time_segments[-1]],
