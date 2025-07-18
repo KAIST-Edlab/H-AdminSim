@@ -1,3 +1,6 @@
+# Base
+seed: 9999
+
 # LLM model
 model: gemini-2.5-flash-preview-05-20
 
