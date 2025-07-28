@@ -10,7 +10,8 @@ To begin, you should first build the agent test data by following [this guidelin
 We need to complete the `config/agent_test.yaml` file.
 ```yaml
 # LLM model
-model: gpt-4 # gemini-2.5-flash-preview-05-20
+model: gemini-2.5-flash
+ensure_output_format: True     # If you set to True, JsonOutputParser provided from LangChain will be used.
 
 # Agent test data and converted FHIR data folder
 agent_test_data: synthetic_data/hospital_easy_small/agent_data
@@ -32,6 +33,7 @@ fhir_api_task:
     user_prompt: asset/prompts/fhir_api_user.txt
 ```
 > * `model`: The model to be used as the agent.
+> * `ensure_output_format`: If you set to True, JsonOutputParser provided from LangChain will be used.
 > * `agent_test_data`: Path to the pre-built agent test data folder.
 > * `fhir_data`: Path to the folder containing pre-converted FHIR data.
 > * `fhir_url`: The base URL of the FHIR server.
