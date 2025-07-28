@@ -56,6 +56,22 @@ class HospitalEnvironment:
                                        changed_schedule: list[dict],
                                        doctor_information: dict,
                                        patient_condition: dict) -> Tuple[bool, str, dict]:
+        """
+        Sanity checking codes of LLM rescheduling results. 
+
+        Args:
+            changed_schedule (list[dict]): Rescheduling results of existing schedules
+            doctor_information (dict): Dictionary of doctor data including their existing schedules.
+                                       Each key is a doctor's name, and each value includes a 'schedule' field.
+            patient_condition (dict): The conditions of the current patient including duration, priority, etc.
+
+        Returns:
+            Tuple[bool, str, dict]:
+                - A boolean indicating whether the prediction passed all sanity checks.
+                - A string explaining its status.
+                - If the sanity check result is `True`, return the `doctor_information` dictionary with the rescheduling results applied; 
+                  otherwise, return the original `doctor_information` dictionary.
+        """
         if len(changed_schedule) == 0:
             times = dict()
             for schedule in self.patient_schedules:
@@ -224,7 +240,7 @@ class HospitalEnvironment:
 
     def update_current_time(self):
         """
-        Set the current time to a random point between the current time and the most recent patient's appointment end time.
+        Update the current hospital time.
         """
         min_iso_time = self.current_time
         max_iso_time = get_iso_time(self.patient_schedules[-1]['schedule'][-1], utc_offset=self._utc_offset)
@@ -232,6 +248,9 @@ class HospitalEnvironment:
 
     
     def update_patient_status(self):
+        """
+        Update the status of each patient based on the current hospital time.
+        """
         for schedule in self.patient_schedules:
             tmp_st_iso_time = datetime.fromisoformat(get_iso_time(schedule['schedule'][0], utc_offset=self._utc_offset))
             tmp_tr_iso_time = datetime.fromisoformat(get_iso_time(schedule['schedule'][-1], utc_offset=self._utc_offset))
@@ -248,10 +267,20 @@ class HospitalEnvironment:
 
 
     def reset_variable(self):
+        """
+        Reset variables.
+        """
         self._tmp_patient_schedules = None
 
     
     def update_env(self, status: bool, patient_schedule: Union[dict, str]):
+        """
+        Update the hospital environment after successfully assigning an appointment.
+
+        Args:
+            status (bool): Whether the appointment was successfully assigned.
+            patient_schedule (Union[dict, str]): The patient's new schedule to add. Should contain a 'schedule' key with start and end time.
+        """
         if status:
             self.patient_schedules = deepcopy(self._tmp_patient_schedules) if self._tmp_patient_schedules != None else self.patient_schedules
             
