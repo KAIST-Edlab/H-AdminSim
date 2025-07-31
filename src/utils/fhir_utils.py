@@ -135,7 +135,7 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
             'specialty': practitioner_ref_to_role[ref]['specialty'],
             'schedule': sorted(practitioner_ref_to_fixed_schedules.get(ref, [])),
             'gender': resource['gender'],
-            'temecom': resource['telecom'],
+            'telecom': resource['telecom'],
             'birthDate': resource['birthDate']
         }
 
