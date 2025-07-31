@@ -9,22 +9,26 @@ class FHIRManager:
         self.fhir_url = config.fhir_url
         
     
-    def __logging(self, response):
+    def __logging(self, response, verbose=True):
         if  200 <= response.status_code < 300:
-            log(f'Status code: {response.status_code}', color=True)
+            if verbose:
+                log(f'Status code: {response.status_code}', color=True)
         else:
-            log(f'Status code: {response.status_code}', level='error')
+            if verbose:
+                log(f'Status code: {response.status_code}', level='error')
         
         try:
             response_json = response.json()
-            log(f'Response JSON: {response_json}')      
+            if verbose:
+                log(f'Response JSON: {response_json}')      
         except ValueError:
-            log(f'Response Text: {response.text}', level='error')
+            if verbose:
+                log(f'Response Text: {response.text}', level='error')
             response = None
         return response
 
 
-    def create(self, resource_type: str, resource_data: dict, headers=None):
+    def create(self, resource_type: str, resource_data: dict, headers=None, verbose=True):
         _id = resource_data.get('id')
         fhir_url = f'{self.fhir_url}/{resource_type}/{_id}'
         response = requests.put(
@@ -34,10 +38,10 @@ class FHIRManager:
         )
 
         # Log and return the response
-        return self.__logging(response)
+        return self.__logging(response, verbose)
     
     
-    def read(self, resource_type: str, id: str, headers=None):
+    def read(self, resource_type: str, id: str, headers=None, verbose=True):
         fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.get(
             fhir_url,
@@ -45,10 +49,10 @@ class FHIRManager:
         )
 
         # Log and return the response
-        return self.__logging(response)
+        return self.__logging(response, verbose)
     
 
-    def update(self, resource_type: str, id: str, resource_data, headers=None):
+    def update(self, resource_type: str, id: str, resource_data, headers=None, verbose=True):
         fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.put(
             fhir_url,
@@ -57,20 +61,20 @@ class FHIRManager:
         )
 
         # Log and return the response
-        return self.__logging(response)
+        return self.__logging(response, verbose)
 
 
-    def delete(self, resource_type: str, id: str):
+    def delete(self, resource_type: str, id: str, verbose=True):
         fhir_url = f'{self.fhir_url}/{resource_type}/{id}'
         response = requests.delete(
             fhir_url
         )
 
         # Log and return the response
-        return self.__logging(response)
+        return self.__logging(response, verbose)
 
 
-    def read_all(self, resource_type: str, headers=None, count=100):
+    def read_all(self, resource_type: str, headers=None, count=100, verbose=True):
         """
         Read all resources of a given resource type using FHIR search.
 
@@ -78,6 +82,7 @@ class FHIRManager:
             resource_type (str): The type of the FHIR resource (e.g., "Patient").
             headers (dict, optional): HTTP headers to use.
             count (int): Number of resources to fetch per page (default: 100).
+            verbose (bool): If True, log each deletion response. Defaults to True.
 
         Returns:
             list: List of resource entries.
@@ -89,7 +94,7 @@ class FHIRManager:
         while url:
             response = requests.get(url, headers=headers)
             bundle = response.json()
-            self.__logging(response)
+            self.__logging(response, verbose)
             
             if bundle.get('resourceType') != 'Bundle' or 'entry' not in bundle:
                 break
@@ -106,20 +111,21 @@ class FHIRManager:
         return all_entries
     
 
-    def delete_all(self, entry: list[dict]):
+    def delete_all(self, entry: list[dict], verbose=True):
         """
         Delete all FHIR resources from a given list of resource entries.
 
         Args:
             entry (list[dict]): List of FHIR Bundle entries, typically from the `read_all()` method.
                                 Each entry should contain a 'resource' dict with 'resourceType' and 'id'.
+            verbose (bool): If True, log each deletion response. Defaults to True.
         """
         error_ids = list()
 
         for resource in entry:
             resource_type = resource.get('resource').get('resourceType')
             id = resource.get('resource').get('id')
-            response = self.delete(resource_type, id)
+            response = self.delete(resource_type, id, verbose)
 
             if not 200 <= response.status_code < 300:
                 error_ids.append(id)
