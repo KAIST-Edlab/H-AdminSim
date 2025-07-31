@@ -60,3 +60,21 @@ python3 src/run/crud.yaml --config config/crud.yaml --mode delete --resource_typ
 > * `${ID}`: Specify the unique identifier of the resource you want to delete. This can be a UUID or any other unique string.
 
 &nbsp;
+
+### 5. Read All
+You can retrieve all resources of a specific resource type even without knowing their individual FHIR IDs:
+```bash
+python3 src/run/crud.yaml --config config/crud.yaml --mode read_all --resource_type ${RESOURCE_TYPE}
+```
+> * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to update (e.g., `Patient`, `Schedule`, etc.).
+
+&nbsp;
+
+### 6. Delete All
+You can delete all resources of a specific resource type even without knowing their individual FHIR IDs:
+```bash
+python3 src/run/crud.yaml --config config/crud.yaml --mode delete_all --resource_type ${RESOURCE_TYPE}
+```
+> * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to delete (e.g., `Patient`, `Schedule`, etc.).
+
+&nbsp;
