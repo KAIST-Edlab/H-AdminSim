@@ -9,6 +9,7 @@ ensure_output_format: False     # If you set to True, JsonOutputParser provided 
 agent_test_data: synthetic_data/hospital_easy_small/agent_data
 fhir_data: synthetic_data/hospital_easy_small/fhir_data
 fhir_url: http://localhost:8080/fhir
+integration_with_fhir: False
 
 # Prompt paths
 department_task:
