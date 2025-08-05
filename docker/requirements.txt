@@ -6,7 +6,7 @@ datasets==2.16.1
 matplotlib==3.10.3
 streamlit==1.45.1
 streamlit-chat==0.1.1
-aiohttp==3.8.4
+aiohttp==3.9.0
 fastapi==0.115.12
 uvicorn==0.34.3
 numpy==1.26.4
