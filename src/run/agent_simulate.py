@@ -19,11 +19,12 @@ def env_setup(config):
     np.random.seed(config.seed)
 
     # Delete Patient and Appointment resources when starting a simulation
-    fhir_manager = FHIRManager(config)
-    appointment_entries = fhir_manager.read_all('Appointment')
-    patient_entries = fhir_manager.read_all('Patient')
-    fhir_manager.delete_all(appointment_entries, verbose=False)
-    fhir_manager.delete_all(patient_entries, verbose=False)
+    if config.integration_with_fhir:
+        fhir_manager = FHIRManager(config)
+        appointment_entries = fhir_manager.read_all('Appointment')
+        patient_entries = fhir_manager.read_all('Patient')
+        fhir_manager.delete_all(appointment_entries, verbose=False)
+        fhir_manager.delete_all(patient_entries, verbose=False)
 
 
 def load_config(config_path):
@@ -93,14 +94,7 @@ def main(args):
                     agent_results.setdefault(task.name, {'gt': [], 'pred': [], 'status': [], 'status_code': []})
                     for k in result:
                         agent_results[task.name][k] += result[k]
-
-                    if task.name == 'schedule':
-                        idx = 0
-                        for j, s in enumerate(agent_results[task.name]['status']):
-                            if s:
-                                agent_results[task.name]['pred'][j] = deepcopy(environment.patient_schedules[idx])
-                                idx += 1
-                                
+                                  
             # Logging the results
             for task_name, result in agent_results.items():
                 correctness = result['status']

@@ -162,7 +162,10 @@ class AssignDepartment(Task):
         Returns:
             str: Post-processed text output.
         """
-        text = text.split()[-1].strip()
+        try:
+            text = text.split()[-1].strip()
+        except:
+            text = 'wrong'
         return text
 
 
