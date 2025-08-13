@@ -6,7 +6,7 @@ from sconf import Config
 from argparse import ArgumentParser
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from tools import AgentTestBuilder
+from tools import AgentDataBuilder
 from utils import log
 
 
@@ -30,7 +30,7 @@ def main(args):
     env_setup(config)
 
     # Initialize data converter
-    builder = AgentTestBuilder(config)
+    builder = AgentDataBuilder(config)
     try:
         output = builder(args.output_dir)
         log(f"Agent data generation completed successfully", color=True)

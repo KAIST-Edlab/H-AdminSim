@@ -11,12 +11,11 @@ from utils.common_utils import (
     get_iso_time,
     get_utc_offset,
     convert_time_to_segment,
-    convert_segment_to_time,
 )
 
 
 
-class AgentTestBuilder:
+class AgentDataBuilder:
     def __init__(self, config):
         # Initialize configuration
         data_dir = os.path.join(config.project, config.data_name, 'data')
@@ -50,7 +49,6 @@ class AgentTestBuilder:
         department_data = data.get('department')
         country_code = data.get('metadata').get('country_code', 'KR')
         time_zone = data.get('metadata').get('timezone', None)
-        date = data.get('metadata').get('date', None)
         utc_offset = get_utc_offset(country_code, time_zone)
         start_hour = data.get('metadata')['time']['start_hour']
         end_hour = data.get('metadata')['time']['end_hour']
@@ -82,8 +80,8 @@ class AgentTestBuilder:
                     'segment': schedule_time_segments,
                     'iso': {'start': get_iso_time(schedule_time_range[0], date, utc_offset), 'end': get_iso_time(schedule_time_range[1], date, utc_offset)}
                 },
-                'priority': patient_values['priority'],
-                'flexibility': patient_values['flexibility'],
+                'preference': patient_values['preference'],
+                'symptom_level': patient_values['symptom_level'],
                 'fhir_resource': f'{appointment_id}.fhir.json'
             }
             agent = {
@@ -94,13 +92,8 @@ class AgentTestBuilder:
                 'symptom': generate_random_symptom(department, symptom_file_path),
                 'constraint': {
                     'duration': float(Decimal(str(schedule_time_range[-1])) - Decimal(str(schedule_time_range[0]))),
-                    'priority': patient_values['priority'],
-                    'flexibility': patient_values['flexibility'],
-                    # 'final_time_to_leave': {  # TODO: Finalize this field
-                    #     'time': schedule_time_range[-1],
-                    #     'segment': [schedule_time_segments[-1]],
-                    #     'iso': get_iso_time(schedule_time_range[-1], date, utc_offset)
-                    # }
+                    'preference': patient_values['preference'],
+                    'symptom_level': patient_values['symptom_level'],
                 }
             }
             agent_data['agent_data'].append((gt, agent))
@@ -135,7 +128,7 @@ class AgentTestBuilder:
         for data_file in tqdm(self.data_files, desc='Generating..'):
             data = json_load(data_file)
             basename, ext = os.path.splitext(os.path.basename(data_file))
-            agent_data = AgentTestBuilder.build(data, os.path.join(output_dir, f"{basename}_agent{ext}"), symptom_file_path)
+            agent_data = AgentDataBuilder.build(data, os.path.join(output_dir, f"{basename}_agent{ext}"), symptom_file_path)
             all_agent_data.append(agent_data)
         
         return all_agent_data
