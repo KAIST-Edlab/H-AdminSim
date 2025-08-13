@@ -24,11 +24,11 @@ from utils.random_utils import (
 class DataSynthesizer:
     def __init__(self, config):
         # Initialize configuration, path and save directory
-        self._config = config
-        self._n = self._config.hospital_data.hospital_n
-        self._save_dir = make_project_dir(self._config)
+        self.config = config
+        self._n = self.config.hospital_data.hospital_n
+        self._save_dir = make_project_dir(self.config)
         self._data_save_dir = self._save_dir / 'data'
-        yaml_save(self._save_dir / 'args.yaml', self._config)
+        yaml_save(self._save_dir / 'args.yaml', self.config)
         os.makedirs(self._data_save_dir, exist_ok=True)
         
     
@@ -54,9 +54,9 @@ class DataSynthesizer:
 
         try:
             all_data, all_hospitals = list(), list()
-            hospitals = DataSynthesizer.hospital_list_generator(self._config.hospital_data.hospital_n)
+            hospitals = DataSynthesizer.hospital_list_generator(self.config.hospital_data.hospital_n)
             for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
-                data = DataSynthesizer.define_hospital_info(self._config, hospital)
+                data = DataSynthesizer.define_hospital_info(self.config, hospital)
                 hospital_obj = convert_info_to_obj(data) if return_obj else None
                 if sanity_check:
                     new_data = convert_obj_to_info(hospital_obj)
@@ -250,7 +250,8 @@ class DataSynthesizer:
         """
         if file_path:
             if registry.DEPARTMENTS is None:
-                registry.DEPARTMENTS = list(json_load(file_path).keys())
+                specialty = json_load(file_path)['specialty']
+                registry.DEPARTMENTS = [k2 for v1 in specialty.values() for k2 in v1['subspecialty'].keys()]
             
             if department_n > len(registry.DEPARTMENTS):
                 raise ValueError(f"Requested {department_n} departments, but only {len(registry.DEPARTMENTS)} available in {file_path}.")
@@ -263,9 +264,9 @@ class DataSynthesizer:
     
     @staticmethod
     def name_list_generator(n: int,
-                              first_name_file_path: str = 'asset/names/firstname.txt', 
-                              last_name_file_path: str = 'asset/names/lastname.txt',
-                              prefix: Optional[str] = None) -> list[str]:
+                            first_name_file_path: str = 'asset/names/firstname.txt', 
+                            last_name_file_path: str = 'asset/names/lastname.txt',
+                            prefix: Optional[str] = None) -> list[str]:
         """
         Generate a list of names.
         
@@ -276,7 +277,7 @@ class DataSynthesizer:
             prefix (Optional[str], optional): Prefix for to be generated names.
         
         Returns:
-            list[str]: List of doctor names in the format "Doctor 001", "Doctor 002", etc.
+            list[str]: List of names.
         """
         if prefix != None:
             assert isinstance(prefix, str), log("`prefix` must be a string type", "error")

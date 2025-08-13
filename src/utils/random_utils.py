@@ -29,7 +29,7 @@ def random_uuid(is_develop: bool = False) -> str:
 
 
 
-def generate_random_names(n: int, 
+def generate_random_names(n: int,
                           first_name_file: str = 'asset/names/firstname.txt',
                           last_name_file: str = 'asset/names/lastname.txt') -> list[str]:
     """
@@ -49,10 +49,16 @@ def generate_random_names(n: int,
         registry.LAST_NAMES = [word.capitalize() for word in txt_load(last_name_file).split('\n') if word.strip()]
 
     # Ensure unique names
-    names = set()
+    duplicate_name_num, names = dict(), set()
     while len(names) < n:
         first_name = random.choice(registry.FIRST_NAMES)
         last_name = random.choice(registry.LAST_NAMES)
+        full_name = f'{first_name} {last_name}'
+
+        if full_name in names:
+            duplicate_name_num[full_name] = duplicate_name_num.setdefault(full_name, 1) + 1
+            full_name = f'{full_name}{duplicate_name_num[full_name]}'
+                
         names.add(f"{first_name} {last_name}")
     return sorted(list(names))
 
@@ -203,11 +209,12 @@ def generate_random_specialty(department: str,
                          If the department is not found, returns ('${PLACEHOLDER}', '${PLACEHOLDER}').
     """
     if registry.SPECIALTIES is None:
-        registry.SPECIALTIES = json_load(specialty_path)
+        department_data = json_load(specialty_path)['specialty']
+        registry.SPECIALTIES = {k2: {'code': v2['code'], 'field': v2['field']} for v1 in department_data.values() for k2, v2 in v1['subspecialty'].items()}
     
     if department in registry.SPECIALTIES:
-        index = random.choice(range(len(registry.SPECIALTIES[department]['specialty'])))
-        return registry.SPECIALTIES[department]['specialty'][index], f"{registry.SPECIALTIES[department]['code']}-{index}"
+        index = random.choice(range(len(registry.SPECIALTIES[department]['field'])))
+        return registry.SPECIALTIES[department]['field'][index], f"{registry.SPECIALTIES[department]['code']}-{index}"
     
     if verbose:
         log(f'No matched department {department}. `${{PLACEHOLDER}}` string will return.', 'warning')
