@@ -1,53 +1,72 @@
 {
-  "cardiology": [
-    "Chest pain and shortness of breath",
-    "Irregular heartbeat or palpitations",
-    "Swelling in legs or ankles (possible heart failure)"
-
-  ],
-  "dermatology": [
-    "Itchy or red skin rash",
-    "Acne or persistent skin bumps",
-    "Unusual skin mole or lesion changes"
-  ],
-  "gastroenterology": [
-    "Persistent abdominal pain or bloating",
-    "Chronic diarrhea or constipation",
-    "Blood in stool or black-colored stool"
-  ],
-  "neurology": [
-    "Frequent headaches or migraines",
-    "Numbness or weakness in limbs",
-    "Seizures or episodes of unconsciousness"
-  ],
-  "orthopedics": [
-    "Joint pain or stiffness (e.g., in the knees or shoulders)",
-    "Difficulty walking due to back or leg pain",
-    "Swollen or fractured limbs from injury"
-  ],
-  "pediatrics": [
-    "Fever and irritability in infants or toddlers",
-    "Delayed growth or abnormal weight gain",
-    "Frequent respiratory infections or wheezing"
-  ],
-  "psychiatry": [
-    "Persistent sadness or loss of interest in daily activities",
-    "Severe anxiety or panic attacks",
-    "Hallucinations or delusional thinking"
-  ],
-  "oncology": [
-    "Unexplained weight loss and fatigue",
-    "Lumps or masses that can be felt through the skin",
-    "Persistent pain or abnormal bleeding"
-  ],
-  "ophthalmology": [
-    "Blurred or distorted vision",
-    "Eye pain or redness with sensitivity to light",
-    "Sudden loss of vision or flashing lights"
-  ],
-  "pulmonology": [
-    "Chronic cough or wheezing",
-    "Shortness of breath during daily activities",
-    "Coughing up blood or mucus with unusual color"
-  ]
+    "gastroenterology": [
+        "Persistent abdominal pain or bloating",
+        "Chronic diarrhea or constipation",
+        "Blood in stool or black-colored stool"
+    ],
+    "cardiology": [
+        "Chest pain and shortness of breath",
+        "Irregular heartbeat or palpitations",
+        "Swelling in legs or ankles (possible heart failure)"
+    ],
+    "pulmonary": [
+        "Chronic cough or wheezing",
+        "Shortness of breath during daily activities",
+        "Coughing up blood or mucus with unusual color"
+    ],
+    "endocrinology/metabolism": [
+        "Excessive thirst and frequent urination",
+        "Unexplained weight gain or loss",
+        "Fatigue and sensitivity to cold or heat"
+    ],
+    "nephrology": [
+        "Swelling in feet, ankles, or around the eyes",
+        "Changes in urination frequency or color",
+        "Persistent lower back or flank pain"
+    ],
+    "hematology oncology": [
+        "Unexplained weight loss and night sweats",
+        "Frequent infections or prolonged fever",
+        "Easy bruising or bleeding"
+    ],
+    "infectious diseases": [
+        "Prolonged fever and chills",
+        "Persistent cough with fever",
+        "Skin rashes with unknown cause"
+    ],
+    "allergy": [
+        "Frequent sneezing and nasal congestion",
+        "Skin rashes or hives after certain exposures",
+        "Difficulty breathing after allergen contact"
+    ],
+    "rheumatory": [
+        "Joint pain and morning stiffness",
+        "Swelling and redness in joints",
+        "Fever with unexplained fatigue"
+    ],
+    "hepato-biliary & pancreas surgery": [
+        "Severe abdominal pain after eating",
+        "Yellowing of skin or eyes (jaundice)",
+        "Unexplained weight loss with digestive discomfort"
+    ],
+    "colorectal surgery": [
+        "Rectal bleeding or blood in stool",
+        "Persistent changes in bowel habits",
+        "Lower abdominal pain and bloating"
+    ],
+    "child surgery": [
+        "Abdominal swelling in infants",
+        "Persistent vomiting after feeding",
+        "Failure to gain weight normally"
+    ],
+    "stomach surgery": [
+        "Frequent indigestion or heartburn",
+        "Vomiting blood or black material",
+        "Persistent stomach pain after meals"
+    ],
+    "breast surgery": [
+        "Lump or thickening in breast tissue",
+        "Changes in breast shape or skin texture",
+        "Nipple discharge that is bloody or clear"
+    ]
 }

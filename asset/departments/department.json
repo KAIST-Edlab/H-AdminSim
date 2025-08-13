@@ -1,82 +1,135 @@
-{
-    "cardiology": {
-        "code": 0,
-        "specialty": [
-            "Interventional Cardiology",
-            "Electrophysiology",
-            "Heart Failure and Transplantation"
-        ]
+{   
+    "metadata": {
+        "reference": "https://emergency.or.kr/bbs/general-notice/2513?utm_source=chatgpt.com"
     },
-    "dermatology": {
-        "code": 1,
-        "specialty": [
-            "Pediatric Dermatology",
-            "Dermatologic Surgery",
-            "Cosmetic Dermatology"
-        ]
-    },
-    "gastroenterology": {
-        "code": 2,
-        "specialty": [
-            "Hepatology",
-            "Pancreatobiliary Medicine",
-            "Inflammatory Bowel Disease"
-        ]
-    },
-    "neurology": {
-        "code": 3,
-        "specialty": [
-            "Stroke and Cerebrovascular Disorders",
-            "Epilepsy",
-            "Neuromuscular Medicine"
-        ]
-    },
-    "orthopedics": {
-        "code": 4,
-        "specialty": [
-            "Spine Surgery",
-            "Sports Medicine",
-            "Joint Replacement"
-        ]
-    },
-    "pediatrics": {
-        "code": 5,
-        "specialty": [
-            "Neonatology",
-            "Pediatric Cardiology",
-            "Pediatric Endocrinology"
-        ]
-    },
-    "psychiatry": {
-        "code": 6,
-        "specialty": [
-            "Child and Adolescent Psychiatry",
-            "Geriatric Psychiatry",
-            "Addiction Psychiatry"
-        ]
-    },
-    "oncology": {
-        "code": 7,
-        "specialty": [
-            "Medical Oncology",
-            "Radiation Oncology",
-            "Surgical Oncology"
-        ]
-    },
-    "ophthalmology": {
-        "code": 8,
-        "specialty": [
-            "Retina and Vitreous",
-            "Cornea and External Disease",
-            "Glaucoma"
-        ]
-    },
-    "pulmonology": {
-        "code": 9,
-        "specialty": [
-            "Interstitial Lung Disease",
-            "Sleep Medicine",
-            "Pulmonary Hypertension"
-        ]
+    "specialty": {
+        "internal medicine": {
+            "code": "IM",
+            "subspecialty": {
+                "gastroenterology": {
+                    "code": "IMGAS",
+                    "field": [
+                        "Hepatology",
+                        "Pancreatobiliary Medicine",
+                        "Inflammatory Bowel Disease"
+                    ]
+                },
+                "cardiology": {
+                    "code": "IMCAR",
+                    "field": [
+                        "Interventional Cardiology",
+                        "Electrophysiology",
+                        "Heart Failure and Transplantation"
+                    ]
+                },
+                "pulmonary": {
+                    "code": "IMPUL",
+                    "field": [
+                        "Interstitial Lung Disease",
+                        "Sleep Medicine",
+                        "Pulmonary Hypertension"
+                    ]
+                },
+                "endocrinology/metabolism": {
+                    "code": "IMEND",
+                    "field": [
+                        "Diabetes Mellitus",
+                        "Thyroid Disorders",
+                        "Osteoporosis and Metabolic Bone Disease"
+                    ]
+                },
+                "nephrology": {
+                    "code": "IMNEP",
+                    "field": [
+                        "Glomerular Diseases",
+                        "Dialysis",
+                        "Kidney Transplantation"
+                    ]
+                },
+                "hematology oncology": {
+                    "code": "IMHEM",
+                    "field": [
+                        "Leukemia and Lymphoma",
+                        "Solid Tumor Oncology",
+                        "Stem Cell Transplantation"
+                    ]
+                },
+                "infectious diseases": {
+                    "code": "IMINF",
+                    "field": [
+                        "HIV/AIDS",
+                        "Tropical Medicine",
+                        "Antimicrobial Stewardship"
+                    ]
+                },
+                "allergy": {
+                    "code": "IMALL",
+                    "field": [
+                        "Asthma",
+                        "Immunodeficiency Disorders",
+                        "Food and Drug Allergy"
+                    ]
+                },
+                "rheumatory": {
+                    "code": "IMRHE",
+                    "field": [
+                        "Systemic Lupus Erythematosus",
+                        "Rheumatoid Arthritis",
+                        "Vasculitis"
+                    ]
+                }
+            }
+        
+        },
+        "general surgery": {
+            "code": "GS",
+            "subspecialty": {
+                "hepato-biliary & pancreas surgery": {
+                    "code": "GSHBP",
+                    "field": [
+                        "Liver Resection",
+                        "Biliary Tract Surgery",
+                        "Pancreatic Surgery",
+                        "Living Donor Liver Transplantation"
+                    ]
+                },
+                "colorectal surgery": {
+                    "code": "GSCOL",
+                    "field": [
+                        "Colon Cancer Surgery",
+                        "Rectal Cancer Surgery",
+                        "Inflammatory Bowel Disease Surgery",
+                        "Minimally Invasive Colorectal Surgery"
+                    ]
+                },
+                "child surgery": {
+                    "code": "GSPED",
+                    "field": [
+                        "Congenital Malformation Repair",
+                        "Pediatric Gastrointestinal Surgery",
+                        "Pediatric Trauma Surgery",
+                        "Neonatal Surgery"
+                    ]
+                },
+                "stomach surgery": {
+                    "code": "GSSTO",
+                    "field": [
+                        "Gastric Cancer Surgery",
+                        "Peptic Ulcer Surgery",
+                        "Bariatric Surgery",
+                        "Minimally Invasive Gastric Surgery"
+                    ]
+                },
+                "breast surgery": {
+                    "code": "GSBRE",
+                    "field": [
+                        "Breast Cancer Surgery",
+                        "Breast Reconstruction",
+                        "Benign Breast Disease Surgery",
+                        "Oncoplastic Surgery"
+                    ]
+                }
+            }
+        }
     }
 }
