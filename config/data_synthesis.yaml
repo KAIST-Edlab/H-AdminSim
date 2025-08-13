@@ -9,6 +9,10 @@ project: ./synthetic_data/
 data_name: hospital_easy_small
 hospital_data:
     hospital_n: 30
+    start_date:
+        min: 2025-03-17      # ISO format: YYYY-MM-DD
+        max: 2025-09-21      # ISO format: YYYY-MM-DD
+    days: 7
     interval_hour: 0.25
     start_hour:
         min: 9

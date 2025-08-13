@@ -85,6 +85,11 @@ class DataSynthesizer:
             Information: Synthetic data about the hospital.
         """
         # Define hosptial metadata
+        start_date = generate_random_iso_date_between(
+            config.hospital_data.start_date.min,
+            config.hospital_data.start_date.max
+        )
+        days = config.hospital_data.days
         interval_hour = float(config.hospital_data.interval_hour)
         start_hour = float(round(random.choice(
             np.arange(
@@ -110,6 +115,8 @@ class DataSynthesizer:
         hospital_time_segments = convert_time_to_segment(start_hour, end_hour, interval_hour)
         metadata = Information(
             hospital_name=hospital_name,
+            start_date=start_date,
+            days=days,
             department_num=department_n,
             doctor_num=doctor_n,
             time=Information(
@@ -119,7 +126,7 @@ class DataSynthesizer:
             )
         )
 
-        # Define SchedulerAssigner class to randomly assign schedules to each doctor
+        # Define ScheduleAssigner class to randomly assign schedules to each doctor
         scheduler = ScheduleAssigner(start_hour, end_hour, interval_hour)
 
         # Define detailed hospital department, doctoral, and patient information
@@ -134,13 +141,6 @@ class DataSynthesizer:
             for _ in range(doc_n):
                 doctor = doctors.pop()
                 department_info[department]['doctor'].append(doctor)
-                schedule_segments, schedule_times = scheduler(
-                    generate_random_prob(
-                        config.hospital_data.doctor_has_schedule_prob,
-                        config.hospital_data.schedule_coverage_ratio.min,
-                        config.hospital_data.schedule_coverage_ratio.max
-                    )
-                )
                 specialty, code = generate_random_specialty(department)
                 doctor_info[doctor] = {
                     'department': department,
@@ -148,7 +148,7 @@ class DataSynthesizer:
                         'name': specialty,
                         'code': code,
                     },
-                    'schedule': schedule_times,
+                    'schedule': {},
                     'gender': generate_random_code('gender'),
                     'telecom': [{
                         'system': 'phone',
@@ -158,42 +158,54 @@ class DataSynthesizer:
                     'birthDate': generate_random_date()
                 }
 
-                # Add patient information per doctor
-                patient_segments = list(set(hospital_time_segments) - set(sum(schedule_segments, [])))
-                _, appointments = scheduler(
-                    generate_random_prob(
-                        1,
-                        config.hospital_data.appointment_coverage_ratio.min,
-                        config.hospital_data.appointment_coverage_ratio.max
-                    ),
-                    True,
-                    patient_segments,
-                    max_chunk_size=config.hospital_data.appointment_coverage_ratio.max_chunk_size
-                )
-                patients = DataSynthesizer.name_list_generator(len(appointments))
-                for patient, appointment in zip(patients, appointments):
-                    preference = generate_random_code_with_prob(
-                        config.hospital_data.preference.type,
-                        config.hospital_data.preference.probs
+                # Generate doctor schedules and apponitments based on the pre-defined days
+                for date in generate_date_range(start_date, days):
+                    schedule_segments, schedule_times = scheduler(
+                        generate_random_prob(
+                            config.hospital_data.doctor_has_schedule_prob,
+                            config.hospital_data.schedule_coverage_ratio.min,
+                            config.hospital_data.schedule_coverage_ratio.max
+                        )
                     )
-                    symptom_level = generate_random_code_with_prob(
-                        config.hospital_data.symptom.type,
-                        config.hospital_data.symptom.probs
+                    doctor_info[doctor]['schedule'][date] = schedule_times
+
+                    # Add patient information per doctor
+                    patient_segments = list(set(hospital_time_segments) - set(sum(schedule_segments, [])))
+                    _, appointments = scheduler(
+                        generate_random_prob(
+                            1,
+                            config.hospital_data.appointment_coverage_ratio.min,
+                            config.hospital_data.appointment_coverage_ratio.max
+                        ),
+                        True,
+                        patient_segments,
+                        max_chunk_size=config.hospital_data.appointment_coverage_ratio.max_chunk_size
                     )
-                    patient_info[patient] = {
-                        'department': department,
-                        'attending_physician': doctor,
-                        'schedule': appointment,
-                        'preference': preference,
-                        'symptom_level': symptom_level,
-                        'gender': generate_random_code('gender'),
-                        'telecom': [{
-                            'system': 'phone',
-                            'value': generate_random_telecom(),
-                            'use': generate_random_code('use')
-                        }],
-                        'birthDate': generate_random_date()
-                    }
+                    patients = DataSynthesizer.name_list_generator(len(appointments))
+                    for patient, appointment in zip(patients, appointments):
+                        preference = generate_random_code_with_prob(
+                            config.hospital_data.preference.type,
+                            config.hospital_data.preference.probs
+                        )
+                        symptom_level = generate_random_code_with_prob(
+                            config.hospital_data.symptom.type,
+                            config.hospital_data.symptom.probs
+                        )
+                        patient_info[patient] = {
+                            'department': department,
+                            'attending_physician': doctor,
+                            'day': date,
+                            'schedule': appointment,
+                            'preference': preference,
+                            'symptom_level': symptom_level,
+                            'gender': generate_random_code('gender'),
+                            'telecom': [{
+                                'system': 'phone',
+                                'value': generate_random_telecom(),
+                                'use': generate_random_code('use')
+                            }],
+                            'birthDate': generate_random_date()
+                        }
             
         # Finalize data structure
         data = Information(

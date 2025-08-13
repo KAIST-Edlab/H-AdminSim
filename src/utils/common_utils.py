@@ -46,9 +46,9 @@ def padded_int(n: int, total_digit_l: int = 3) -> str:
         str: The zero-padded string representation of the integer.
     """
     if n < 0:
-        raise ValueError("Negative integers are not supported")
+        raise ValueError(colorstr("red", "Negative integers are not supported"))
     if total_digit_l <= 0:
-        raise ValueError("Total digit length must be a positive integer")
+        raise ValueError(colorstr("red", "Total digit length must be a positive integer"))
     
     return str(n).zfill(total_digit_l)
 
@@ -149,6 +149,27 @@ def convert_obj_to_info(hospital_obj: Hospital) -> Information:
 
 
 
+def generate_date_range(start_date: Union[str, datetime.date], 
+                        days: int) -> list[str]:
+    """
+    Generate a list of dates starting from `start_date` for `days` days.
+
+    Args:
+        start_date (Union[str, date]): Start date in ISO format (YYYY-MM-DD).
+        days (int): Number of days to include (including start_date).
+
+    Returns:
+        List[str]: List of date strings in ISO format.
+    """
+    if days <= 0:
+        raise ValueError(colorstr("red", f"`days` must be larger than 0, but got {days}"))
+
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    return [(start_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+
+
+
 def get_utc_offset(country_code: Optional[str] = None, 
                    time_zone: Optional[str] = None) -> str:
     """
@@ -232,7 +253,7 @@ def get_iso_time(time_hour: Union[int, float],
         try:
             datetime.strptime(date, '%Y-%m-%d')
         except ValueError:
-            raise ValueError(colorstr('red', f"Invalid date format: '{date}'. Expected format is 'YYYY-MM-DD'."))
+            raise ValueError(colorstr("red", f"Invalid date format: '{date}'. Expected format is 'YYYY-MM-DD'."))
 
     time = convert_hours_to_hhmmss(time_hour)
 
@@ -286,18 +307,46 @@ def generate_random_iso_time_between(min_iso_time: str,
     max_dt = datetime.fromisoformat(max_iso_time)
 
     if min_dt >= max_dt:
-        raise ValueError(f"min_iso_time ({min_iso_time}) must be earlier than max_iso_time ({max_iso_time})")
+        raise ValueError(colorstr("red", f"min_iso_time ({min_iso_time}) must be earlier than max_iso_time ({max_iso_time})"))
 
     total_seconds = (max_dt - min_dt).total_seconds()
 
     if total_seconds <= 2 * epsilon:
-        raise ValueError("Time range is too small for the given epsilon to exclude both bounds.")
+        raise ValueError(colorstr("red", "Time range is too small for the given epsilon to exclude both bounds."))
 
     # Exclude both bounds by starting from epsilon and ending at total_seconds - epsilon
     random_seconds = random.uniform(epsilon, total_seconds - epsilon)
     random_dt = min_dt + timedelta(seconds=random_seconds)
 
     return random_dt.isoformat()
+
+
+
+def generate_random_iso_date_between(min_date: Union[str, datetime.date],
+                                     max_date: Union[str, datetime.date]) -> str:
+    """
+    Generate a random date between min_date and max_date (inclusive).
+
+    Args:
+        min_date Union[str, date]: Minimum date in ISO format (YYYY-MM-DD) or a date object.
+        max_date Union[str, date]: Maximum date in ISO format (YYYY-MM-DD) or a date object.
+
+    Returns:
+        str: Random date in ISO format (YYYY-MM-DD).
+    """
+    if isinstance(min_date, str):
+        min_date = datetime.strptime(min_date, "%Y-%m-%d").date()
+    if isinstance(max_date, str):
+        max_date = datetime.strptime(max_date, "%Y-%m-%d").date()
+
+    delta_days = (max_date - min_date).days
+    if delta_days < 0:
+        raise ValueError(colorstr("red", "max_date must be after or equal to min_date."))
+
+    random_days = random.randint(0, delta_days)
+
+    return (min_date + timedelta(days=random_days)).strftime("%Y-%m-%d")
+
 
 
 def convert_time_to_segment(start: float, 
