@@ -44,10 +44,15 @@ class DataConverter:
             save_dir = os.path.join(output_dir, 'practitioner')
         
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         practitioners = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
+            practitioner_id = get_individual_id(
+                hospital_name,
+                department_data[doctor_values['department']]['code'].lower(), 
+                doctor_name
+            )
             names = doctor_name.split()
             practitioner_obj = {
                 'resourceType': 'Practitioner',
@@ -100,10 +105,15 @@ class DataConverter:
             save_dir = os.path.join(output_dir, 'practitionerrole')
         
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         practitionerroles = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
+            practitioner_id = get_individual_id(
+                hospital_name,
+                department_data[doctor_values['department']]['code'].lower(), 
+                doctor_name
+            )
             practitionerrole_id = get_practitionerrole_id(practitioner_id)
             practitionerrole_obj = {
                 'resourceType': 'PractitionerRole',
@@ -156,10 +166,15 @@ class DataConverter:
             save_dir = os.path.join(output_dir, 'patient')
         
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         patients = list()
 
         for patient_name, patient_values in data['patient'].items():
-            patient_id = get_individual_id(hospital_name, patient_values['department'], patient_name)
+            patient_id = get_individual_id(
+                hospital_name,
+                department_data[patient_values['department']]['code'].lower(), 
+                patient_name
+            )
             names = patient_name.split()
             patient_obj = {
                 'resourceType': 'Patient',
@@ -211,23 +226,26 @@ class DataConverter:
             save_dir = os.path.join(output_dir, 'schedule')
 
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         country_code = data.get('metadata').get('country_code', 'KR')
         time_zone = data.get('metadata').get('timezone', None)
-        date = data.get('metadata').get('date', None)
-        start = get_iso_time(data.get('metadata')['time']['start_hour'], date, get_utc_offset(country_code, time_zone))
-        end = get_iso_time(data.get('metadata')['time']['end_hour'], date, get_utc_offset(country_code, time_zone))
+        start_date = data.get('metadata').get('start_date', None)
+        end_date = data.get('metadata').get('end_date', start_date)
+        start = get_iso_time(data.get('metadata')['time']['start_hour'], start_date, get_utc_offset(country_code, time_zone))
+        end = get_iso_time(data.get('metadata')['time']['end_hour'], end_date, get_utc_offset(country_code, time_zone))
         schedules = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
+            practitioner_id = get_individual_id(
+                hospital_name,
+                department_data[doctor_values['department']]['code'].lower(), 
+                doctor_name
+            )
             schedule_id = get_schedule_id(practitioner_id)
             schedule_obj = {
                 'resourceType': 'Schedule',
                 'id': schedule_id,
                 'active': True,
-                # 'serviceCategory': [None],    TODO: Add default value
-                # 'serviceType': [None],    TODO: Add default value
-                # 'specialty': [None],    TODO: Add default value
                 'actor': [{'reference': f'Practitioner/{practitioner_id}'}],
                 'planningHorizon': {'start': start, 'end': end}
             }
@@ -267,9 +285,9 @@ class DataConverter:
             save_dir = os.path.join(output_dir, 'slot')
 
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         country_code = data.get('metadata').get('country_code', 'KR')
         time_zone = data.get('metadata').get('timezone', None)
-        date = data.get('metadata').get('date', None)
         utc_offset = get_utc_offset(country_code, time_zone)
         start_hour = data.get('metadata')['time']['start_hour']
         end_hour = data.get('metadata')['time']['end_hour']
@@ -278,67 +296,66 @@ class DataConverter:
         slots = list()
 
         for doctor_name, doctor_values in data['doctor'].items():
-            practitioner_id = get_individual_id(hospital_name, doctor_values['department'], doctor_name)
+            practitioner_id = get_individual_id(
+                hospital_name,
+                department_data[doctor_values['department']]['code'].lower(), 
+                doctor_name
+            )
 
-            # Filtering fixed schedule
-            fixed_schedule = []
-            for schedule in doctor_values['schedule']:
-                fixed_schedule += convert_time_to_segment(start_hour, end_hour, interval_hour, schedule)
+            for date, schedules in doctor_values['schedule'].items():
+                # Filtering fixed schedule
+                fixed_schedule = []
+                for schedule in schedules:
+                    fixed_schedule += convert_time_to_segment(start_hour, end_hour, interval_hour, schedule)
 
-            # Appointment available time segments
-            free_schedule = sorted(list(set(entire_segments) - set(fixed_schedule)))
+                # Appointment available time segments
+                free_schedule = sorted(list(set(entire_segments) - set(fixed_schedule)))
 
-            # Add slot as a `busy` status
-            for seg in fixed_schedule:
-                st, tr = convert_segment_to_time(start_hour, end_hour, interval_hour, [seg])
-                slot_id = get_slot_id(practitioner_id, seg)
-                slot_obj = {
-                    'resourceType': 'Slot',
-                    'id': slot_id,
-                    # 'serviceCategory': [None],    TODO: Add default value
-                    # 'serviceType': [None],    TODO: Add default value
-                    # 'specialty': [None],    TODO: Add default value
-                    'schedule': {'reference': f'Schedule/{practitioner_id}-schedule'},
-                    'status': 'busy',
-                    'start': get_iso_time(st, date, utc_offset),
-                    'end': get_iso_time(tr, date, utc_offset),
-                }
-                slots.append(slot_obj)
+                # Add slot as a `busy` status
+                for seg in fixed_schedule:
+                    st, tr = convert_segment_to_time(start_hour, end_hour, interval_hour, [seg])
+                    slot_id = get_slot_id(practitioner_id, date, seg)
+                    slot_obj = {
+                        'resourceType': 'Slot',
+                        'id': slot_id,
+                        'schedule': {'reference': f'Schedule/{get_schedule_id(practitioner_id)}'},
+                        'status': 'busy',
+                        'start': get_iso_time(st, date, utc_offset),
+                        'end': get_iso_time(tr, date, utc_offset),
+                    }
+                    slots.append(slot_obj)
 
-                if save_dir:
-                    save_path = os.path.join(save_dir, f'{slot_id}.fhir.json')
-                    if sanity_check:
-                        assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
-                    json_save_fast(
-                        save_path,
-                        slot_obj
-                    )
-            
-            # Add slot as a `free` status
-            for seg in free_schedule:
-                slot_id = get_slot_id(practitioner_id, seg)
-                st, tr = convert_segment_to_time(start_hour, end_hour, interval_hour, [seg])
-                slot_obj = {
-                    'resourceType': 'Slot',
-                    'id': slot_id,
-                    # 'serviceCategory': [None],    TODO: Add default value
-                    # 'serviceType': [None],    TODO: Add default value
-                    # 'specialty': [None],    TODO: Add default value
-                    'schedule': {'reference': f'Schedule/{practitioner_id}-schedule'},
-                    'status': 'free',
-                    'start': get_iso_time(st, date, utc_offset),
-                    'end': get_iso_time(tr, date, utc_offset),
-                }
-                slots.append(slot_obj)
-            
-                if save_dir:
-                    save_path = os.path.join(save_dir, f'{slot_id}.fhir.json')
-                    if sanity_check:
-                        assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
-                    json_save_fast(
-                        save_path,
-                        slot_obj
-                    )
+                    if save_dir:
+                        save_path = os.path.join(save_dir, f'{slot_id}.fhir.json')
+                        if sanity_check:
+                            assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
+                        json_save_fast(
+                            save_path,
+                            slot_obj
+                        )
+                
+                # Add slot as a `free` status
+                for seg in free_schedule:
+                    slot_id = get_slot_id(practitioner_id, date, seg)
+                    st, tr = convert_segment_to_time(start_hour, end_hour, interval_hour, [seg])
+                    slot_obj = {
+                        'resourceType': 'Slot',
+                        'id': slot_id,
+                        'schedule': {'reference': f'Schedule/{get_schedule_id(practitioner_id)}'},
+                        'status': 'free',
+                        'start': get_iso_time(st, date, utc_offset),
+                        'end': get_iso_time(tr, date, utc_offset),
+                    }
+                    slots.append(slot_obj)
+                
+                    if save_dir:
+                        save_path = os.path.join(save_dir, f'{slot_id}.fhir.json')
+                        if sanity_check:
+                            assert not os.path.exists(save_path), log(f"Same file exists: {save_path}", "error")
+                        json_save_fast(
+                            save_path,
+                            slot_obj
+                        )
 
         return slots
 
@@ -365,9 +382,9 @@ class DataConverter:
             save_dir = os.path.join(output_dir, 'appointment')
 
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         country_code = data.get('metadata').get('country_code', 'KR')
         time_zone = data.get('metadata').get('timezone', None)
-        date = data.get('metadata').get('date', None)
         utc_offset = get_utc_offset(country_code, time_zone)
         start_hour = data.get('metadata')['time']['start_hour']
         end_hour = data.get('metadata')['time']['end_hour']
@@ -376,28 +393,33 @@ class DataConverter:
 
         for patient_name, patient_values in data['patient'].items():
             doctor_name = patient_values['attending_physician']
-            practitioner_id = get_individual_id(hospital_name, patient_values['department'], doctor_name)
-            patient_id = get_individual_id(hospital_name, patient_values['department'], patient_name)
+            practitioner_id = get_individual_id(
+                hospital_name,
+                department_data[patient_values['department']]['code'].lower(), 
+                doctor_name
+            )
+            patient_id = get_individual_id(
+                hospital_name,
+                department_data[patient_values['department']]['code'].lower(), 
+                patient_name
+            )
             participant = [
                 {"actor": {"reference": f"Practitioner/{practitioner_id}", "display": doctor_name}, "status": "accepted"},
                 {"actor": {"reference": f"Patient/{patient_id}", "display": patient_name}, "status": "accepted"}
             ]
 
             # Filtering fixed schedule
+            date = patient_values['date']
             schedule_time_range = patient_values['schedule']
             schedule_segments = convert_time_to_segment(start_hour, end_hour, interval_hour, schedule_time_range)
-            appointment_id = get_appointment_id(practitioner_id, schedule_segments[0], schedule_segments[-1])
+            appointment_id = get_appointment_id(practitioner_id, date, schedule_segments[0], schedule_segments[-1])
             appointment_obj = {
                 'resourceType': 'Appointment',
                 'id': appointment_id,
-                # 'serviceCategory': [None],    TODO: Add default value
-                # 'serviceType': [None],    TODO: Add default value
-                # 'specialty': [None],    TODO: Add default value
-                # 'note: [{'text': 'sdfsf'}]    TODO: Add notes
                 'status': 'booked',
                 'start': get_iso_time(schedule_time_range[0], date, utc_offset),
                 'end': get_iso_time(schedule_time_range[-1], date, utc_offset),
-                'slot': [{'reference': f'Slot/{practitioner_id}-slot{seg}'} for seg in schedule_segments],
+                'slot': [{'reference': f'Slot/{get_slot_id(practitioner_id, date, seg)}'} for seg in schedule_segments],
                 'participant': participant
             }
             appointments.append(appointment_obj)

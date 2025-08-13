@@ -21,19 +21,19 @@ def sanitize_id(s: str) -> str:
 
 
 
-def get_individual_id(hospital: str, department: str, individual_name: str) -> str:
+def get_individual_id(hospital: str, department_code: str, individual_name: str) -> str:
     """
     Make an individual ID.
 
     Args:
         hospital (str): A hospital name.
-        department (str): A department name.
+        department_code (str): A department code.
         individual_name (str): An individual name.
     
     Returns:
         str: A sanitized individual ID.
     """
-    return sanitize_id(f'{hospital}-{department}-{individual_name}')
+    return sanitize_id(f'{hospital}-{department_code.lower()}-{individual_name}')
 
 
 
@@ -65,34 +65,36 @@ def get_schedule_id(individual_id: str) -> str:
 
 
 
-def get_slot_id(individual_id: str, time_segment_index: int) -> str:
+def get_slot_id(individual_id: str, date: str, time_segment_index: int) -> str:
     """
     Make a slot ID for an individual.
 
     Args:
         individual_id (str): An individual ID.
+        date (str): A date in ISO format (YYYY-MM-DD).
         time_segment_index (int): An index of start time segment.
 
     Returns:
         str: A slot ID.
     """
-    return f'{individual_id}-slot{time_segment_index}'
+    return f"{individual_id}-{date.replace('-', '')}-slot{time_segment_index}"
 
 
 
-def get_appointment_id(individual_id: str, start_time_segment_index: int, end_time_segment_index: int) -> str:
+def get_appointment_id(individual_id: str, date: str, start_time_segment_index: int, end_time_segment_index: int) -> str:
     """
     Make an appointment ID for an individual.
 
     Args:
         individual_id (str): An individual ID.
+        date (str): A date in ISO format (YYYY-MM-DD).
         start_time_segment_index (int): An index of start time segment.
         end_time_segment_index (int): An index of end time segment.
 
     Returns:
         str: An appointment ID.
     """
-    return f'{individual_id}-appn{start_time_segment_index}-{end_time_segment_index}'
+    return f"{individual_id}-{date.replace('-', '')}-appn{start_time_segment_index}-{end_time_segment_index}"
 
 
 

@@ -664,14 +664,15 @@ class MakeFHIRResource(Task):
         patient = schedule['patient']
         doctor = schedule['attending_physician']
         department = schedule['department']
+        date = schedule['date']
         schedule = schedule['schedule']
         
         utc_offset = get_utc_offset(self._country_code)
-        patient_id = get_individual_id(self._hospital_name, department, patient)
-        practitioner_id = get_individual_id(self._hospital_name, department, doctor)
+        patient_id = get_individual_id(self._hospital_name, self._department_data[department]['code'], patient)
+        practitioner_id = get_individual_id(self._hospital_name, self._department_data[department]['code'], doctor)
         schedule_segments = convert_time_to_segment(self._START_HOUR, self._END_HOUR, self._TIME_UNIT, schedule)
         
-        _id = get_appointment_id(practitioner_id, schedule_segments[0], schedule_segments[-1])
+        _id = get_appointment_id(practitioner_id, date, schedule_segments[0], schedule_segments[-1])
         start = get_iso_time(schedule[0], utc_offset=utc_offset)
         end = get_iso_time(schedule[-1], utc_offset=utc_offset)
         patient_ref = f'Patient/{patient_id}'
@@ -709,6 +710,7 @@ class MakeFHIRResource(Task):
                 - 'status_code': List of string codes representing the validation status.
         """
         gt, test_data = data_pair
+        self._department_data = agent_test_data.get('department')
         metadata = agent_test_data.get('metadata')
         self._hospital_name = metadata.get('hospital_name')
         self._country_code = metadata.get('country_code', 'KR')

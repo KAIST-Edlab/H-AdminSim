@@ -47,6 +47,7 @@ class AgentTestBuilder:
                     - Agent input (symptom and constraints).
         """
         hospital_name = data.get('metadata')['hospital_name']
+        department_data = data.get('department')
         country_code = data.get('metadata').get('country_code', 'KR')
         time_zone = data.get('metadata').get('timezone', None)
         date = data.get('metadata').get('date', None)
@@ -59,10 +60,12 @@ class AgentTestBuilder:
         for patient, patient_values in data['patient'].items():
             doctor = patient_values['attending_physician']
             department = patient_values['department']
+            date = patient_values['date']
             schedule_time_range = patient_values['schedule']
             schedule_time_segments = convert_time_to_segment(start_hour, end_hour, interval_hour, schedule_time_range)
             appointment_id = get_appointment_id(
-                get_individual_id(hospital_name, department, doctor),
+                get_individual_id(hospital_name, department_data[department]['code'], doctor),
+                date,
                 schedule_time_segments[0],
                 schedule_time_segments[-1]
             )

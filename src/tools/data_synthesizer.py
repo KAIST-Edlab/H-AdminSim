@@ -85,11 +85,14 @@ class DataSynthesizer:
             Information: Synthetic data about the hospital.
         """
         # Define hosptial metadata
-        start_date = generate_random_iso_date_between(
-            config.hospital_data.start_date.min,
-            config.hospital_data.start_date.max
-        )
         days = config.hospital_data.days
+        dates = generate_date_range(
+            generate_random_iso_date_between(
+                config.hospital_data.start_date.min,
+                config.hospital_data.start_date.max,
+            ), 
+            days
+        )
         interval_hour = float(config.hospital_data.interval_hour)
         start_hour = float(round(random.choice(
             np.arange(
@@ -115,7 +118,8 @@ class DataSynthesizer:
         hospital_time_segments = convert_time_to_segment(start_hour, end_hour, interval_hour)
         metadata = Information(
             hospital_name=hospital_name,
-            start_date=start_date,
+            start_date=dates[0],
+            end_date=dates[-1],
             days=days,
             department_num=department_n,
             doctor_num=doctor_n,
@@ -133,20 +137,22 @@ class DataSynthesizer:
         department_info, doctor_info, patient_info = dict(), dict(), dict()
         departments = DataSynthesizer.department_list_generator(department_n)
         doctors = DataSynthesizer.name_list_generator(doctor_n, prefix='Dr. ')   # Doctor names are unique across all departments
-        for department, doc_n in zip(departments, doctor_n_per_department):
+        for department_data, doc_n in zip(departments, doctor_n_per_department):
+            department, dep_code = department_data
+
             # Add department information
-            department_info[department] = {'doctor': []}
+            department_info[department] = {'code': dep_code if dep_code else 'NA', 'doctor': []}
             
             # Add doctor information
             for _ in range(doc_n):
                 doctor = doctors.pop()
                 department_info[department]['doctor'].append(doctor)
-                specialty, code = generate_random_specialty(department)
+                specialty, spe_code = generate_random_specialty(department)
                 doctor_info[doctor] = {
                     'department': department,
                     'specialty': {
                         'name': specialty,
-                        'code': code,
+                        'code': spe_code,
                     },
                     'schedule': {},
                     'gender': generate_random_code('gender'),
@@ -159,7 +165,7 @@ class DataSynthesizer:
                 }
 
                 # Generate doctor schedules and apponitments based on the pre-defined days
-                for date in generate_date_range(start_date, days):
+                for date in dates:
                     schedule_segments, schedule_times = scheduler(
                         generate_random_prob(
                             config.hospital_data.doctor_has_schedule_prob,
@@ -194,7 +200,7 @@ class DataSynthesizer:
                         patient_info[patient] = {
                             'department': department,
                             'attending_physician': doctor,
-                            'day': date,
+                            'date': date,
                             'schedule': appointment,
                             'preference': preference,
                             'symptom_level': symptom_level,
@@ -252,7 +258,7 @@ class DataSynthesizer:
     
     @staticmethod
     def department_list_generator(department_n: int,
-                                  file_path: Optional[str] = 'asset/departments/department.json') -> list[str]:
+                                  file_path: Optional[str] = 'asset/departments/department.json') -> list[Tuple[str, str]]:
         """
         Generate a list of department names based on the number of departments.
         
@@ -262,12 +268,12 @@ class DataSynthesizer:
                                                  Defaults to 'asset/departments/department.json'.
         
         Returns:
-            list[str]: List of department names in the format "Department 001", "Department 002", etc.
+            list[Tuple[str, str]]: List of department names and their codes.
         """
         if file_path:
             if registry.DEPARTMENTS is None:
                 specialty = json_load(file_path)['specialty']
-                registry.DEPARTMENTS = [k2 for v1 in specialty.values() for k2 in v1['subspecialty'].keys()]
+                registry.DEPARTMENTS = [(k2, v2['code']) for v1 in specialty.values() for k2, v2 in v1['subspecialty'].items()]
             
             if department_n > len(registry.DEPARTMENTS):
                 raise ValueError(f"Requested {department_n} departments, but only {len(registry.DEPARTMENTS)} available in {file_path}.")
@@ -275,7 +281,7 @@ class DataSynthesizer:
             return random.sample(registry.DEPARTMENTS, department_n)
             
         zfill_l = len(str(department_n))
-        return [f"department_{padded_int(i, zfill_l)}" for i in range(department_n)]
+        return [(f"department_{padded_int(i, zfill_l)}", None) for i in range(department_n)]
     
     
     @staticmethod
