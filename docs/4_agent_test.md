@@ -18,6 +18,7 @@ vllm_url: http://0.0.0.0:8000     # Used only when using vllm.
 agent_test_data: synthetic_data/hospital_easy_small/agent_data
 fhir_data: synthetic_data/hospital_easy_small/fhir_data
 fhir_url: http://localhost:8080/fhir
+integration_with_fhir: False
 
 # Prompt paths
 department_task:
@@ -39,7 +40,10 @@ fhir_api_task:
 > * `agent_test_data`: Path to the pre-built agent test data folder.
 > * `fhir_data`: Path to the folder containing pre-converted FHIR data.
 > * `fhir_url`: The base URL of the FHIR server.
+> * `integration_with_fhir`: Whether to integrate with a FHIR server during the simulation.
 > * `*prompt`: Paths to the prompt data.
+
+&nbsp;
 
 
 #### 0.1 Agent Models
@@ -53,9 +57,20 @@ For the *otherwise* case, you can serve the model using the vLLM with the below 
 sh ./run_vllm_docker.sh 
 ```
 
+&nbsp;
+
+#### 0.2 FHIR Resources
+If `integration_with_fhir = True` is set in the configuration, you must add the following FHIR resources in sequence before starting the agent simulation.
+If these FHIR resources are not created in the correct order, errors may occur due to reference relationships.
+For instructions on how to create FHIR resources, please refer to [here](2_fhir_crud.md).
+* `Practitioner`
+* `PractitionerRole`
+* `Schedule`
+* `Slot`
 
 
 &nbsp;
+
 
 ### 1. Agent Tasks Execution
 #### 1.1 Overview
