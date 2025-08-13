@@ -6,29 +6,33 @@ fhir_url: http://localhost:8080/fhir
 
 # Data configs
 project: ./synthetic_data/
-data_name: hospital_easy_large
+data_name: hospital_easy_small
 hospital_data:
-    hospital_n: 10000
-    interval_hour: 0.5
+    hospital_n: 30
+    interval_hour: 0.25
     start_hour:
-        min: 6
-        max: 8
+        min: 9
+        max: 10
     end_hour:
         min: 18
-        max: 20
+        max: 19
     department_per_hospital:
         min: 2
-        max: 5    
+        max: 3   
     doctor_per_department:
         min: 1
-        max: 5
+        max: 1
     doctor_has_schedule_prob: 0.3   # The probability that a doctor has at least one fixed schedule.
     schedule_coverage_ratio:        # If the doctor has a fixed schedule, the proportion of that schedule relative to the total working hours.
         min: 0.01
         max: 0.2
     appointment_coverage_ratio:   # Proportion of appointment time scheduled with patients outside the doctor's fixed schedule.
-        max_chunk_size: 4         # Maximum number of consecutive segments per appointment (e.g., max duration = interval_hour * max_chunk_size).
-        min: 0.9
-        max: 1.0
-    priority_distribution: [0.1, 0.2, 0.7]  # Probability distribution over patient priority levels. For example, [0.2, 0.4, 0.4] means 20% chance of priority 0, 40% chance of priority 1, and 40% chance of priority 2.
-    priority_flexibility_prob: [0, 0.5, 0.9]   # Probability that each priority level is *flexible* rather than *fixed*. For example, [0, 0.5, 0.9] means priority 0 is always fixed, priority 1 has a 50% chance to be flexible, and priority 2 has a 90% chance to be flexible.
+        max_chunk_size: 1         # Maximum number of consecutive segments per appointment (e.g., max duration = interval_hour * max_chunk_size).
+        min: 0.2
+        max: 0.5
+    preference:
+        type: ['asap', 'doctor']    # Types of patient preferences.
+        probs: [0.5, 0.5]           # Types probability distribution.
+    symptom:
+        type: ['simple', 'with_histpry']    # Types of patient history.
+        probs: [0.7, 0.3]                   # Types probability distribution.
