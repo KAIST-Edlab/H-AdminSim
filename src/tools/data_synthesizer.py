@@ -163,17 +163,28 @@ class DataSynthesizer:
                     }],
                     'birthDate': generate_random_date()
                 }
+                working_days = random.randint(
+                    config.hospital_data.working_days.min,
+                    config.hospital_data.working_days.max
+                )
+                working_dates = sorted(random.sample(dates, working_days))
 
                 # Generate doctor schedules and apponitments based on the pre-defined days
                 for date in dates:
-                    schedule_segments, schedule_times = scheduler(
-                        generate_random_prob(
-                            config.hospital_data.doctor_has_schedule_prob,
-                            config.hospital_data.schedule_coverage_ratio.min,
-                            config.hospital_data.schedule_coverage_ratio.max
+                    # Working day case
+                    if date in working_dates:
+                        schedule_segments, schedule_times = scheduler(
+                            generate_random_prob(
+                                config.hospital_data.doctor_has_schedule_prob,
+                                config.hospital_data.schedule_coverage_ratio.min,
+                                config.hospital_data.schedule_coverage_ratio.max
+                            )
                         )
-                    )
-                    doctor_info[doctor]['schedule'][date] = schedule_times
+                        doctor_info[doctor]['schedule'][date] = schedule_times
+                    # Not working day case
+                    else:
+                        schedule_segments, schedule_times = scheduler(1)
+                        doctor_info[doctor]['schedule'][date] = schedule_times
 
                     # Add patient information per doctor
                     patient_segments = list(set(hospital_time_segments) - set(sum(schedule_segments, [])))

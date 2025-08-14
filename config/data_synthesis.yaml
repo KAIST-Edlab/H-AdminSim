@@ -26,6 +26,9 @@ hospital_data:
     doctor_per_department:
         min: 1
         max: 2
+    working_days:                   # The number of days a doctor can work during the given simulation period, with a random number of days assigned to each doctor.
+        min: 3
+        max: 4
     doctor_has_schedule_prob: 1     # The probability that a doctor has at least one fixed schedule.
     schedule_coverage_ratio:        # If the doctor has a fixed schedule, the proportion of that schedule relative to the total working hours.
         min: 0.4
