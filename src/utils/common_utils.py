@@ -449,3 +449,71 @@ def convert_segment_to_time(start: float,
     seg_end = min(Decimal(str(start)) + Decimal(str((segments[-1] + 1) * interval)), end)
 
     return float(seg_start), float(seg_end)
+
+
+
+def group_consecutive_segments(segments: list[int]) -> list[list[int]]:
+    """
+    Group a list of integer segments into consecutive blocks.
+
+    This function takes a list of integers and splits it into sublists where 
+    each sublist contains consecutive numbers. Numbers that are not consecutive
+    start a new group.
+
+    Args:
+        segments (list[int]): A list of integer segments to be grouped. 
+                              The list should contain integers in any order; 
+                              typically sorted for meaningful consecutive grouping.
+
+    Returns:
+        list[list[int]]: A list of lists, where each sublist contains consecutive integers 
+                         from the input list.
+    
+    Example:
+        >>> group_consecutive_segments([1, 2, 3, 5, 6, 8])
+        [[1, 2, 3], [5, 6], [8]]
+    """
+    consecutive_blocks = []
+    group = [segments[0]]
+    for i in range(1, len(segments)):
+        if segments[i] == segments[i - 1] + 1:
+            group.append(segments[i])
+        else:
+            consecutive_blocks.append(group)
+            group = [segments[i]]
+    consecutive_blocks.append(group)
+    return consecutive_blocks
+
+
+
+def convert_time_list_to_merged_time(start: float,
+                                     end: float,
+                                     interval: float,
+                                     time_list: list[Tuple[float, float]]) -> list[Tuple[float, float]]:
+    """
+    Convert a list of time intervals into merged intervals based on a fixed segment grid.
+
+    This function maps each time interval in `time_list` into discrete segments
+    defined by the `start`, `end`, and `interval`. Consecutive segments are then
+    merged back into continuous time intervals.
+
+    Args:
+        start (float): The start time of the overall time range (e.g., 9.0 for 9:00 AM).
+        end (float): The end time of the overall time range (e.g., 17.0 for 5:00 PM).
+        interval (float): The length of each time segment (e.g., 0.5 for 30 minutes).
+        time_list (list[Tuple[float, float]]): A list of time intervals to convert and merge.
+                                               Each interval is a tuple (start_time, end_time).
+
+    Returns:
+        list[Tuple[float, float]]: A list of merged time intervals as tuples (start_time, end_time).
+                                   Intervals are merged if they cover consecutive segments.
+
+    Example:
+        >>> convert_time_list_to_merged_time(9.0, 17.0, 0.5, [(9.0, 10.0), (10.0, 11.0), (13.0, 14.0)])
+        [(9.0, 11.0), (13.0, 14.0)]
+    """
+    if len(time_list) > 0:
+        segments = sum([convert_time_to_segment(start, end, interval, t) for t in time_list], [])
+        grouped = group_consecutive_segments(segments)
+        time_list = [list(convert_segment_to_time(start, end, interval, group)) for group in grouped]
+    return time_list

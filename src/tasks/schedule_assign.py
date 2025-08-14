@@ -1,7 +1,11 @@
 import random
 from typing import Tuple, Optional
 
-from utils.common_utils import convert_segment_to_time, convert_time_to_segment
+from utils.common_utils import (
+    convert_segment_to_time,
+    convert_time_to_segment, 
+    group_consecutive_segments,
+)
 
 
 
@@ -60,15 +64,7 @@ class ScheduleAssigner:
             chosen_segments.sort()
 
             # Grouping consecutive segments
-            grouped = []
-            group = [chosen_segments[0]]
-            for i in range(1, len(chosen_segments)):
-                if chosen_segments[i] == chosen_segments[i-1] + 1:
-                    group.append(chosen_segments[i])
-                else:
-                    grouped.append(group)
-                    group = [chosen_segments[i]]
-            grouped.append(group)
+            grouped = group_consecutive_segments(chosen_segments)
             return grouped
         return []
     
@@ -95,16 +91,8 @@ class ScheduleAssigner:
             chosen = random.sample(segments, segment_n)
             chosen.sort()
 
-            # First, group into consecutive blocks 
-            consecutive_blocks = []
-            group = [chosen[0]]
-            for i in range(1, len(chosen)):
-                if chosen[i] == chosen[i - 1] + 1:
-                    group.append(chosen[i])
-                else:
-                    consecutive_blocks.append(group)
-                    group = [chosen[i]]
-            consecutive_blocks.append(group)
+            # First, group into consecutive blocks
+            consecutive_blocks = group_consecutive_segments(chosen)
 
             # Second, split each consecutive block into random-sized chunks
             appointments = []

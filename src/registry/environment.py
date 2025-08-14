@@ -141,7 +141,8 @@ class HospitalEnvironment:
             self._fhir_practitionerrole_cache,
             self._fhir_schedule_cache,
             self._fhir_slot_cache,
-            self.fhir_appointment
+            self.fhir_appointment,
+            **{'start': self._START_HOUR, 'end': self._END_HOUR, 'interval': self._TIME_UNIT}
         )
         return doctor_information
     

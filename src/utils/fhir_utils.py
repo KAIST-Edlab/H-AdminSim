@@ -1,7 +1,11 @@
 import re
 from typing import Union
 
-from utils.common_utils import iso_to_hour, iso_to_date
+from utils.common_utils import (
+    iso_to_hour,
+    iso_to_date,
+    convert_time_list_to_merged_time,
+)
 
 
 
@@ -102,7 +106,8 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
                                           practitioner_roles: list[dict],
                                           schedules: list[dict],
                                           slots: list[dict],
-                                          appointments: list[dict]) -> dict:
+                                          appointments: list[dict],
+                                          **kwargs) -> dict:
     """
     Make a current state of doctoral information based on the FHIR server.
 
@@ -116,6 +121,11 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
     Returns:
         dict: Current state of doctoral information. 
     """
+    def __sort_schedule(data: Union[dict, list]) -> Union[dict, list]:
+        if isinstance(data, list):
+            return sorted(data)
+        return {k: sorted(v) for k, v in dict(sorted(data.items())).items()}
+
     # Prepare several pre-required data
     doctor_information = dict()
     practitioner_ref_to_schedules = dict()
@@ -139,24 +149,30 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
     }
 
     # Append fixed schedules of a doctor
-    # TODO: schedule busy는 segment 합쳐야함.
     for slot in slots:
         resource = slot['resource']
         practitioner_ref = schedule_ref_to_practioner_ref[slot['resource']['schedule']['reference']]
+        date = iso_to_date(resource['start'])
+        practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
+        practitioner_dict.setdefault(date, [])
         if not resource['status'] == 'free':
-            date = iso_to_date(resource['start'])
-            practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
-            practitioner_dict.setdefault(date, []).append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
+            practitioner_dict[date].append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
+
+    # Merge fixed schedule times
+    if all(k in kwargs for k in ['start', 'end', 'interval']):
+        for fixed_schedules in practitioner_ref_to_schedules.values():
+            for date, time_list in fixed_schedules.items():
+                fixed_schedules[date] = convert_time_list_to_merged_time(time_list=__sort_schedule(time_list), **kwargs)
 
     # Append patient appointments of a doctor
     for appointment in appointments:
         resource = appointment['resource']
         for participant in resource['participant']:
             participant_ref = participant['actor']['reference']
+            date = iso_to_date(resource['start'])
+            practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
             if participant_ref in practitioner_ref_to_name:
-                date = iso_to_date(resource['start'])
-                practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
-                practitioner_dict.setdefault(date, []).append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
+                practitioner_dict[date].append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
                 break
         
     # Build the doctor information from FHIR
@@ -166,6 +182,7 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
         doctor_information[practitioner_ref_to_name[ref]] = {
             'department': practitioner_ref_to_role[ref]['department'],
             'specialty': practitioner_ref_to_role[ref]['specialty'],
+            'schedule': __sort_schedule(practitioner_ref_to_schedules.get(ref, [])),
             'schedule': {k: sorted(v) for k, v in dict(sorted(practitioner_ref_to_schedules.get(ref, []).items())).items()},
             'gender': resource['gender'],
             'telecom': resource['telecom'],
