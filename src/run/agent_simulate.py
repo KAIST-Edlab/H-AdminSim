@@ -63,6 +63,7 @@ def main(args):
     env_setup(config)
 
     # Initialize tasks
+    # TODO: fhir-related tasks are legacy
     queue = list()
     if 'department' in args.type:
         queue.append(AssignDepartment(config))
@@ -127,7 +128,7 @@ def main(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
-    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['department', 'schedule', 'fhir_resource', 'fhir_api'], help='Task types you want to execute (you can specify multiple)')
+    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['department', 'schedule'], help='Task types you want to execute (you can specify multiple)')
     parser.add_argument('-o', '--output_dir', type=str, required=True, help='Path to save agent test results')
     parser.add_argument('-s', '--skip_saved_file', action='store_true', required=False, help='Skip inference if results already exit')
     args = parser.parse_args()

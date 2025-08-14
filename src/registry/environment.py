@@ -56,6 +56,7 @@ class HospitalEnvironment:
         _country_code = agent_test_data.get('metadata').get('country_code', 'KR')
         
         self._utc_offset = get_utc_offset(_country_code)
+        # TODO: Need to improve current time logic
         self.current_time = get_iso_time(
             time_hour=random.uniform(max(0, self._START_HOUR - 6), max(0, self._START_HOUR - self._epsilon)),
             utc_offset=self._utc_offset
@@ -151,18 +152,7 @@ class HospitalEnvironment:
         fhir_resources (dict): Dictionary where each key is a FHIR resource type (e.g., 'Appointment', 'Slot'),
                                and each value is the corresponding FHIR resource data to be updated.
         """
-        # Update the rescheduled appointment FHIR resources
-        if fhir_resources['reschedule']:
-            appointment_patient_to_id_map = {get_patient_from_appointment(appn['resource']): appn['resource']['id'] for appn in self.fhir_appointment}
-            for resource in fhir_resources['reschedule']:
-                patient = get_patient_from_appointment(resource)
-                self.fhir_manager.delete('Appointment', appointment_patient_to_id_map[patient], verbose=False)
-
-            # Create after delete operation to prevent ID conflicts
-            for resource in fhir_resources['reschedule']:
-                self.fhir_manager.create('Appointment', resource, verbose=False)
-        
-        # Create a new appointment
+        # Update new FHIR resources
         for resource_type, resource in fhir_resources.items():
             if resource and resource_type.lower() in ['patient', 'appointment']:
                 self.fhir_manager.create(resource_type, resource, verbose=False)
@@ -221,8 +211,6 @@ class HospitalEnvironment:
             if len(self.patient_schedules) and patient_schedule['schedule'][0] > self.patient_schedules[-1]['schedule'][0]:
                 self.update_current_time()
             
-            patient_schedule = deepcopy(patient_schedule)
-            del patient_schedule['reschedule']
             self.patient_schedules.append(patient_schedule)
             self.update_patient_status()
 

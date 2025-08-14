@@ -70,7 +70,7 @@ class Task:
         try:
             return json_load(gt_resource_path)
         except:
-            metadata, info = data.get('metadata'), data.get('information')
+            metadata, info, department = data.get('metadata'), data.get('information'), data.get('department')
             schedule = info.get('schedule')
             if 'time' in schedule:
                 schedule = schedule.get('time')
@@ -78,10 +78,12 @@ class Task:
             gt_resource = DataConverter.data_to_appointment(
                 {
                     'metadata': metadata,
+                    'department': department,
                     'patient': {
                         info.get('patient'): {
                             'department': info.get('department'),
                             'attending_physician': info.get('attending_physician'),
+                            'date': info.get('date'),
                             'schedule': schedule
                         }
                     }
@@ -426,6 +428,7 @@ class AssignSchedule(Task):
         """
         gt, test_data = data_pair
         metadata = agent_test_data.get('metadata')
+        department_data = agent_test_data.get('department')
         self._START_HOUR = metadata.get('time').get('start_hour')
         self._END_HOUR = metadata.get('time').get('end_hour')
         self._TIME_UNIT = metadata.get('time').get('interval_hour')
@@ -506,29 +509,23 @@ class AssignSchedule(Task):
         )
 
         # POST/PUT to FHIR
-        fhir_patient, fhir_appointment, fhir_reschedule = None, None, None
+        fhir_patient, fhir_appointment = None, None
         if status and self.integration_with_fhir:
             # Even if a failure occurs during a later API tasks, update the FHIR resources to ensure continued scheduling task 
             fhir_patient = DataConverter.data_to_patient(
-                {'metadata': deepcopy(metadata), 'patient': {test_data['patient']: {'department': department, **deepcopy(test_data)}}}
+                {'metadata': deepcopy(metadata),
+                 'department': deepcopy(department_data),
+                 'patient': {test_data['patient']: {'department': department, **deepcopy(test_data)}}}
             )[0]
             fhir_appointment = self._get_fhir_appointment(data={'metadata': deepcopy(metadata),
-                                                                'information': {'department': prediction.get('department'),
-                                                                                'patient': prediction.get('patient'),
-                                                                                'attending_physician': prediction.get('attending_physician'),
-                                                                                'schedule': prediction.get('schedule')}})
-            fhir_reschedule = [self._get_fhir_appointment(data={'metadata': deepcopy(metadata),
-                                                                'information': {
-                                                                    'department': s.get('department'),
-                                                                    'patient': s.get('patient'),
-                                                                    'attending_physician': s.get('attending_physician'),
-                                                                    'schedule': s.get('schedule')}}) for s in prediction['reschedule']] if len(prediction['reschedule']) else None
-
+                                                                'department': deepcopy(department_data),
+                                                                'information': deepcopy(prediction)})
+            
         agent_test_data['doctor'] = doctor_information    # Update the doctor information in the agent test data
         environment.update_env(
             status=status, 
             patient_schedule=prediction,
-            fhir_resources={'Patient': fhir_patient, 'Appointment': fhir_appointment, 'reschedule': fhir_reschedule}
+            fhir_resources={'Patient': fhir_patient, 'Appointment': fhir_appointment}
         )
         
         # Append results
@@ -747,7 +744,9 @@ class MakeFHIRResource(Task):
             using_multi_turn=False
         )
         prediction = MakeFHIRResource.postprocessing(prediction)
-        expected_prediction = self._get_fhir_appointment(data={'metadata': deepcopy(metadata), 'information': deepcopy(schedule)})
+        expected_prediction = self._get_fhir_appointment(data={'metadata': deepcopy(metadata), 
+                                                               'department': deepcopy(self._department_data), 
+                                                               'information': deepcopy(schedule)})
         status, status_code, prediction = self._sanity_check(prediction, expected_prediction)
         
         # Append results
@@ -827,7 +826,9 @@ class MakeFHIRAPI(Task):
             # Load the FHIR json file if it exists, otherwise create a new one
             fhir_resource = self._get_fhir_appointment(
                 gt_resource_path=fhir_resource_path,
-                data={'metadata': deepcopy(self._metadata), 'information': deepcopy(gt)}
+                data={'metadata': deepcopy(self._metadata), 
+                      'department': deepcopy(self._department_data),
+                      'information': deepcopy(gt)}
             )
             sanity = True
         
@@ -925,6 +926,7 @@ class MakeFHIRAPI(Task):
         """
         gt, test_data = data_pair
         self._metadata = agent_test_data.get('metadata')
+        self._department_data = agent_test_data.get('department')
         fhir_resource, sanity = self.__extract_fhir_resource(gt, agent_results)
         results = self.get_result_dict()
         
@@ -932,7 +934,9 @@ class MakeFHIRAPI(Task):
         gt_api = self.__get_api(
             self._get_fhir_appointment(
                 gt_resource_path=self._fhir_data_path / 'appointment' / gt.get('fhir_resource'),
-                data={'metadata': deepcopy(self._metadata), 'information': deepcopy(gt)}
+                data={'metadata': deepcopy(self._metadata),
+                      'department': deepcopy(self._department_data),
+                      'information': deepcopy(gt)}
             )
         )
         results['gt'].append(gt_api)
