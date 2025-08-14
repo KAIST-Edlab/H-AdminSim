@@ -204,7 +204,7 @@ def get_utc_offset(country_code: Optional[str] = None,
 
 
 
-def convert_hours_to_hhmmss(hours: Union[int, float]) -> str:
+def hour_to_hhmmss(hours: Union[int, float]) -> str:
     """
     Converts a decimal number of hours into HH:MM:SS format.
 
@@ -255,7 +255,7 @@ def get_iso_time(time_hour: Union[int, float],
         except ValueError:
             raise ValueError(colorstr("red", f"Invalid date format: '{date}'. Expected format is 'YYYY-MM-DD'."))
 
-    time = convert_hours_to_hhmmss(time_hour)
+    time = hour_to_hhmmss(time_hour)
 
     if utc_offset:
         return f'{date}T{time}{utc_offset}'
@@ -263,9 +263,9 @@ def get_iso_time(time_hour: Union[int, float],
 
 
 
-def get_time_hour(iso_time: str) -> float:
+def iso_to_hour(iso_time: str) -> float:
     """
-    Convert an ISO 8601 time string to float hour.
+    Extract time information from an ISO 8601 time and convert time to float hour.
 
     Args:
         iso_time_str (str): ISO 8601 time string (e.g., '2025-07-17T09:30:00+09:00')
@@ -283,6 +283,23 @@ def get_time_hour(iso_time: str) -> float:
     second = dt.second
 
     return hour + minute / 60 + second / 3600
+
+
+
+def iso_to_date(iso_time: str) -> str:
+    """
+    Extract date information from an ISO 8601 time.
+
+    Args:
+        iso_time (str): ISO 8601 time string (e.g., '2025-07-17T09:30:00+09:00')
+
+    Returns:
+        str: Date represented in string (e.g. 2024-05-23)
+    """
+    if isinstance(iso_time, str):
+        iso_time = datetime.fromisoformat(iso_time)
+    
+    return str(iso_time.date())
 
 
 

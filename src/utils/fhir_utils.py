@@ -1,7 +1,7 @@
 import re
 from typing import Union
 
-from utils.common_utils import get_time_hour
+from utils.common_utils import iso_to_hour, iso_to_date
 
 
 
@@ -139,11 +139,14 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
     }
 
     # Append fixed schedules of a doctor
+    # TODO: schedule busy는 segment 합쳐야함.
     for slot in slots:
         resource = slot['resource']
         practitioner_ref = schedule_ref_to_practioner_ref[slot['resource']['schedule']['reference']]
         if not resource['status'] == 'free':
-            practitioner_ref_to_schedules.setdefault(practitioner_ref, []).append([get_time_hour(resource['start']), get_time_hour(resource['end'])])
+            date = iso_to_date(resource['start'])
+            practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
+            practitioner_dict.setdefault(date, []).append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
 
     # Append patient appointments of a doctor
     for appointment in appointments:
@@ -151,7 +154,9 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
         for participant in resource['participant']:
             participant_ref = participant['actor']['reference']
             if participant_ref in practitioner_ref_to_name:
-                practitioner_ref_to_schedules.setdefault(participant_ref, []).append([get_time_hour(resource['start']), get_time_hour(resource['end'])])
+                date = iso_to_date(resource['start'])
+                practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
+                practitioner_dict.setdefault(date, []).append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
                 break
         
     # Build the doctor information from FHIR
@@ -161,7 +166,7 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
         doctor_information[practitioner_ref_to_name[ref]] = {
             'department': practitioner_ref_to_role[ref]['department'],
             'specialty': practitioner_ref_to_role[ref]['specialty'],
-            'schedule': sorted(practitioner_ref_to_schedules.get(ref, [])),
+            'schedule': {k: sorted(v) for k, v in dict(sorted(practitioner_ref_to_schedules.get(ref, []).items())).items()},
             'gender': resource['gender'],
             'telecom': resource['telecom'],
             'birthDate': resource['birthDate']

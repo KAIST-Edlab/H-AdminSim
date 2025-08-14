@@ -54,6 +54,7 @@ class HospitalEnvironment:
         self._START_HOUR = agent_test_data.get('metadata').get('time').get('start_hour')
         self._END_HOUR = agent_test_data.get('metadata').get('time').get('end_hour')
         self._TIME_UNIT = agent_test_data.get('metadata').get('time').get('interval_hour')
+        self._START_DATE = agent_test_data.get('metadata').get('start_date')
         _country_code = agent_test_data.get('metadata').get('country_code', 'KR')
         
         self._utc_offset = get_utc_offset(_country_code)
