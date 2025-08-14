@@ -93,6 +93,7 @@ class AgentDataBuilder:
                 'constraint': {
                     'duration': float(Decimal(str(schedule_time_range[-1])) - Decimal(str(schedule_time_range[0]))),
                     'preference': patient_values['preference'],
+                    'attending_physician': doctor,
                     'symptom_level': patient_values['symptom_level'],
                 }
             }
