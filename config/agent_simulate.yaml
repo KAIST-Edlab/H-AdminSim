@@ -12,6 +12,10 @@ fhir_data: synthetic_data/hospital_easy_small/fhir_data
 fhir_url: http://localhost:8080/fhir
 integration_with_fhir: False
 
+# Hospital environment
+booking_days_before_simulation: 3       # Number of days before the simulation date when appointment booking can start
+fhir_max_connection_retries: 5          # Maximum number of retry attempts when retrieving data from the FHIR server
+
 # Prompt paths
 department_task:
     system_prompt: asset/prompts/department_system.txt

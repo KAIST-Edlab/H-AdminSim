@@ -251,6 +251,8 @@ def get_iso_time(time_hour: Union[int, float],
         date = datetime.today().strftime('%Y-%m-%d')
     else:
         try:
+            if not isinstance(date, str):
+                date = str(date)
             datetime.strptime(date, '%Y-%m-%d')
         except ValueError:
             raise ValueError(colorstr("red", f"Invalid date format: '{date}'. Expected format is 'YYYY-MM-DD'."))
@@ -335,7 +337,7 @@ def generate_random_iso_time_between(min_iso_time: str,
     random_seconds = random.uniform(epsilon, total_seconds - epsilon)
     random_dt = min_dt + timedelta(seconds=random_seconds)
 
-    return random_dt.isoformat()
+    return random_dt.isoformat(timespec='seconds')
 
 
 

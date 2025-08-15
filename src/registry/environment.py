@@ -1,15 +1,12 @@
 import time
 import random
 from typing import Union
-from copy import deepcopy
 from decimal import getcontext
+from datetime import datetime, timedelta
 
 from tasks import FHIRManager
 from utils import log
-from utils.fhir_utils import (
-    get_patient_from_appointment,
-    convert_fhir_resources_to_doctor_info,
-)
+from utils.fhir_utils import convert_fhir_resources_to_doctor_info
 from utils.common_utils import (
     get_iso_time,
     get_utc_offset,
@@ -23,7 +20,7 @@ from utils.common_utils import (
 class HospitalEnvironment:
     def __init__(self, config, agent_test_data):
         self.fhir_manager = FHIRManager(config)
-        self.__init_variable(agent_test_data)
+        self.__init_variable(config, agent_test_data)
         
         # Define error codes
         self.status_codes = {
@@ -39,28 +36,34 @@ class HospitalEnvironment:
         }
 
 
-    def __init_variable(self, agent_test_data: dict):
+    def __init_variable(self, config, agent_test_data: dict):
         """
         Initialize the environment variables based on the agent test data.
 
         Args:
+            config (Config): Configuration parameters of the agent simulation.
             agent_test_data (dict): An agent test data to simulate a hospital environmnet.
         """
         getcontext().prec = 10
         self._epsilon = 1e-6
-        self.max_retries = 5
+        self.max_retries = config.fhir_max_connection_retries
+        self._days_before = config.booking_days_before_simulation
         self.HOSPITAL_NAME = agent_test_data.get('metadata').get('hospital_name')
+        self._START_DATE = agent_test_data.get('metadata').get('start_date')
+        self._END_DATE = agent_test_data.get('metadata').get('end_date')
         self._START_HOUR = agent_test_data.get('metadata').get('time').get('start_hour')
         self._END_HOUR = agent_test_data.get('metadata').get('time').get('end_hour')
         self._TIME_UNIT = agent_test_data.get('metadata').get('time').get('interval_hour')
+        self._PATIENT_NUM = len(agent_test_data.get('agent_data'))
         _country_code = agent_test_data.get('metadata').get('country_code', 'KR')
         
         self._utc_offset = get_utc_offset(_country_code)
-        # TODO: Need to improve current time logic
         self.current_time = get_iso_time(
             time_hour=random.uniform(max(0, self._START_HOUR - 6), max(0, self._START_HOUR - self._epsilon)),
+            date=(datetime.strptime(self._START_DATE, "%Y-%m-%d") - timedelta(days=self._days_before)).strftime("%Y-%m-%d"),
             utc_offset=self._utc_offset
         )
+        self.avg_gap = self.__calculate_max_time_increment()
         self.patient_schedules = list()
         self.first_verbose_flag = True
 
@@ -69,6 +72,14 @@ class HospitalEnvironment:
         self._fhir_practitionerrole_cache = None
         self._fhir_schedule_cache = None
         self._fhir_slot_cache = None
+
+
+    def __calculate_max_time_increment(self):
+        st = get_iso_time(self._START_HOUR, self._START_DATE, self._utc_offset)
+        tr = get_iso_time(self._END_HOUR, self._END_DATE, self._utc_offset)
+        total_hours = (datetime.fromisoformat(tr) - datetime.fromisoformat(st)).total_seconds() / 3600
+        avg_gap = total_hours / self._PATIENT_NUM
+        return avg_gap
 
 
     def doctor_info_from_fhir(self, use_cache: bool = True) -> dict:
@@ -163,7 +174,7 @@ class HospitalEnvironment:
         Update the current hospital time.
         """
         min_iso_time = self.current_time
-        max_iso_time = get_iso_time(self.patient_schedules[-1]['schedule'][-1], utc_offset=self._utc_offset)
+        max_iso_time = (datetime.fromisoformat(self.current_time) + timedelta(hours=self.avg_gap)).isoformat(timespec='seconds')
         self.current_time = generate_random_iso_time_between(min_iso_time, max_iso_time)
 
     
@@ -207,10 +218,7 @@ class HospitalEnvironment:
         """
         if status:
             self.update_fhir(fhir_resources)
-            
-            if len(self.patient_schedules) and patient_schedule['schedule'][0] > self.patient_schedules[-1]['schedule'][0]:
-                self.update_current_time()
-            
+            self.update_current_time()
             self.patient_schedules.append(patient_schedule)
             self.update_patient_status()
 
