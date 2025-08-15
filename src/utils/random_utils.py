@@ -1,11 +1,12 @@
 import uuid
 import random
-from typing import Tuple, Any
+from typing import Tuple, Any, Union
 from datetime import datetime, timedelta
 
 import registry
 from utils import log
 from utils.filesys_utils import txt_load, json_load
+from utils.common_utils import str_to_datetime, datetime_to_str
 
 
 
@@ -144,23 +145,24 @@ def generate_random_telecom(min_length: int = 8,
 
 
 
-def generate_random_date(start_date: str = '1960-01-01', end_date: str = '2000-12-31') -> str:
+def generate_random_date(start_date: Union[str, datetime] = '1960-01-01',
+                         end_date: Union[str, datetime] = '2000-12-31') -> str:
     """
     Generate a random date string in 'YYYY-MM-DD' format between the given start and end dates.
 
     Args:
-        start_date (str): The start date in 'YYYY-MM-DD' format. Default is '2000-01-01'.
-        end_date (str): The end date in 'YYYY-MM-DD' format. Default is '2025-12-31'.
+        start_date (Union[str, datetime]): The start date in 'YYYY-MM-DD' format. Default is '2000-01-01'.
+        end_date (Union[str, datetime]): The end date in 'YYYY-MM-DD' format. Default is '2025-12-31'.
 
     Returns:
         str: A randomly generated date string in 'YYYY-MM-DD' format.
     """
-    start = datetime.strptime(start_date, '%Y-%m-%d')
-    end = datetime.strptime(end_date, '%Y-%m-%d')
+    start = str_to_datetime(start_date)
+    end = str_to_datetime(end_date)
     delta = (end - start).days
     random_days = random.randint(0, delta)
     random_date = start + timedelta(days=random_days)
-    return random_date.strftime('%Y-%m-%d')
+    return datetime_to_str(random_date, '%Y-%m-%d')
 
 
 

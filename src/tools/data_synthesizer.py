@@ -88,8 +88,8 @@ class DataSynthesizer:
         days = config.hospital_data.days
         dates = generate_date_range(
             generate_random_iso_date_between(
-                config.hospital_data.start_date.min,
-                config.hospital_data.start_date.max,
+                str(config.hospital_data.start_date.min),
+                str(config.hospital_data.start_date.max),
             ), 
             days
         )

@@ -149,13 +149,60 @@ def convert_obj_to_info(hospital_obj: Hospital) -> Information:
 
 
 
-def generate_date_range(start_date: Union[str, datetime.date], 
+def str_to_datetime(iso_time: Union[str, datetime]) -> datetime:
+    """
+    Convert a string representation of a date/time to a datetime object, or return the input if it's already a datetime/date object.
+
+    Args:
+        iso_time (Union[str, datetime]): The input date/time, either as a string in the specified format or as a datetime/date object.
+
+    Returns:
+        datetime: A datetime object corresponding to the input string, or the original datetime/date if already provided.
+
+    Raises:
+        ValueError: If `iso_time` is not a string or datetime/date object.
+    """
+    try:
+        if isinstance(iso_time, str): 
+            return datetime.fromisoformat(iso_time)
+        return iso_time
+    except:
+        raise ValueError(colorstr("red", f"`iso_time` must be str or date format, but got {type(iso_time)}"))
+    
+
+
+def datetime_to_str(iso_time: Union[str, datetime], format: str) -> str:
+    """
+    Convert a datetime object to a formatted string, or return the input if it is already a string.
+
+    Args:
+        iso_time (Union[str, datetime]): The input value to convert. If a datetime object, it will be formatted as a string. 
+                                         If already a string, it will be returned as-is.
+        format (str): The format string used to convert the datetime object to a string 
+                      (e.g., "%Y-%m-%d" or "%Y-%m-%dT%H:%M:%S").
+
+    Returns:
+        str: The formatted string representation of the datetime, or the original string if input was a string.
+
+    Raises:
+        ValueError: If `iso_time` is neither a string nor a datetime object.
+    """
+    try:
+        if not isinstance(iso_time, str): 
+            return iso_time.strftime(format)
+        return iso_time
+    except:
+        raise ValueError(colorstr("red", f"`iso_time` must be str or date format, but got {type(iso_time)}"))
+
+
+
+def generate_date_range(start_date: Union[str, datetime], 
                         days: int) -> list[str]:
     """
     Generate a list of dates starting from `start_date` for `days` days.
 
     Args:
-        start_date (Union[str, date]): Start date in ISO format (YYYY-MM-DD).
+        start_date (Union[str, datetime]): Start date in ISO format (YYYY-MM-DD).
         days (int): Number of days to include (including start_date).
 
     Returns:
@@ -163,10 +210,8 @@ def generate_date_range(start_date: Union[str, datetime.date],
     """
     if days <= 0:
         raise ValueError(colorstr("red", f"`days` must be larger than 0, but got {days}"))
-
-    if isinstance(start_date, str):
-        start_date = datetime.strptime(start_date, "%Y-%m-%d")
-    return [(start_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
+    start_date = str_to_datetime(start_date)
+    return [datetime_to_str(start_date + timedelta(days=i), "%Y-%m-%d") for i in range(days)]
 
 
 
@@ -231,14 +276,14 @@ def hour_to_hhmmss(hours: Union[int, float]) -> str:
 
 
 def get_iso_time(time_hour: Union[int, float],
-                 date: Optional[str] = None,
+                 date: Optional[Union[str, datetime]] = None,
                  utc_offset: Optional[str] = None) -> str:
     """
     Construct an ISO 8601 time string from a given hour, optional date, and optional UTC offset.
 
     Args:
         time_hour (Union[int, float]): Time expressed in hours (e.g., 9.5 → 09:30:00).
-        date (Optional[str], optional): Date string in 'YYYY-MM-DD' format. Defaults to today's date.
+        date (Optional[Union[str, datetime]], optional): Date string in 'YYYY-MM-DD' format. Defaults to today's date.
         utc_offset (Optional[str], optional): UTC offset in '+HH:MM' or '-HH:MM' format. Defaults to no offset.
 
     Returns:
@@ -248,11 +293,10 @@ def get_iso_time(time_hour: Union[int, float],
         ValueError: If the `date` format is invalid.
     """
     if date == None:
-        date = datetime.today().strftime('%Y-%m-%d')
+        date = datetime_to_str(datetime.today(), '%Y-%m-%d')
     else:
         try:
-            if not isinstance(date, str):
-                date = str(date)
+            date = datetime_to_str(date, '%Y-%m-%d')
             datetime.strptime(date, '%Y-%m-%d')
         except ValueError:
             raise ValueError(colorstr("red", f"Invalid date format: '{date}'. Expected format is 'YYYY-MM-DD'."))
@@ -265,21 +309,17 @@ def get_iso_time(time_hour: Union[int, float],
 
 
 
-def iso_to_hour(iso_time: str) -> float:
+def iso_to_hour(iso_time: Union[str, datetime]) -> float:
     """
     Extract time information from an ISO 8601 time and convert time to float hour.
 
     Args:
-        iso_time_str (str): ISO 8601 time string (e.g., '2025-07-17T09:30:00+09:00')
+        iso_time_str (Union[str, datetime]): ISO 8601 time string (e.g., '2025-07-17T09:30:00+09:00')
 
     Returns:
         float: Time represented in float hours (e.g., 9.5)
     """
-    iso_time_cleaned = re.sub(r'(\+|-)\d{2}:\d{2}$', '', iso_time)
-    
-    # Parse datetime (ignores timezone)
-    dt = datetime.fromisoformat(iso_time_cleaned)
-
+    dt = str_to_datetime(iso_time)
     hour = dt.hour
     minute = dt.minute
     second = dt.second
@@ -288,32 +328,30 @@ def iso_to_hour(iso_time: str) -> float:
 
 
 
-def iso_to_date(iso_time: str) -> str:
+def iso_to_date(iso_time: Union[str, datetime]) -> str:
     """
     Extract date information from an ISO 8601 time.
 
     Args:
-        iso_time (str): ISO 8601 time string (e.g., '2025-07-17T09:30:00+09:00')
+        iso_time (Union[str, datetime]): ISO 8601 time string (e.g., '2025-07-17T09:30:00+09:00')
 
     Returns:
         str: Date represented in string (e.g. 2024-05-23)
     """
-    if isinstance(iso_time, str):
-        iso_time = datetime.fromisoformat(iso_time)
-    
+    iso_time = str_to_datetime(iso_time)
     return str(iso_time.date())
 
 
 
-def generate_random_iso_time_between(min_iso_time: str,
-                                     max_iso_time: str,
+def generate_random_iso_time_between(min_iso_time: Union[str, datetime],
+                                     max_iso_time: Union[str, datetime],
                                      epsilon: float = 1e-6) -> str:
     """
     Generate a random ISO 8601 time string strictly within (min_iso_time, max_iso_time).
 
     Args:
-        min_iso_time (str): The lower bound ISO 8601 time string (exclusive).
-        max_iso_time (str): The upper bound ISO 8601 time string (exclusive).
+        min_iso_time (Union[str, datetime]): The lower bound ISO 8601 time string (exclusive).
+        max_iso_time (Union[str, datetime]): The upper bound ISO 8601 time string (exclusive).
         epsilon (float, optional): Small buffer to exclude both bounds. Defaults to 1e-6 seconds.
 
     Returns:
@@ -322,8 +360,7 @@ def generate_random_iso_time_between(min_iso_time: str,
     Raises:
         ValueError: If min_iso_time is not earlier than max_iso_time or epsilon is too large.
     """
-    min_dt = datetime.fromisoformat(min_iso_time) if isinstance(min_iso_time, str) else min_iso_time
-    max_dt = datetime.fromisoformat(max_iso_time) if isinstance(max_iso_time, str) else max_iso_time
+    min_dt, max_dt = str_to_datetime(min_iso_time), str_to_datetime(max_iso_time)
 
     if not compare_iso_time(max_dt, min_dt):
         raise ValueError(colorstr("red", f"min_iso_time ({min_iso_time}) must be earlier than max_iso_time ({max_iso_time})"))
@@ -341,47 +378,41 @@ def generate_random_iso_time_between(min_iso_time: str,
 
 
 
-def compare_iso_time(time1: str, time2: str) -> bool:
+def compare_iso_time(time1: Union[str, datetime], time2: Union[str, datetime]) -> bool:
     """
     Compare two times given in ISO 8601 format and determine if the first is later than the second.
 
     Args:
-        time1 (str): The first time value as an ISO 8601 string or a datetime object.
-        time2 (str): The second time value as an ISO 8601 string or a datetime object.
+        time1 (Union[str, datetime]): The first time value as an ISO 8601 string or a datetime object.
+        time2 (Union[str, datetime]): The second time value as an ISO 8601 string or a datetime object.
 
     Returns:
         bool: True if `time1` is later than `time2`, otherwise False.
     """
-    time1 = datetime.fromisoformat(time1) if isinstance(time1, str) else time1
-    time2 = datetime.fromisoformat(time2) if isinstance(time2, str) else time2
-    return time1 > time2
+    return str_to_datetime(time1) > str_to_datetime(time2)
 
 
 
-def generate_random_iso_date_between(min_date: Union[str, datetime.date],
-                                     max_date: Union[str, datetime.date]) -> str:
+def generate_random_iso_date_between(min_date: Union[str, datetime],
+                                     max_date: Union[str, datetime]) -> str:
     """
     Generate a random date between min_date and max_date (inclusive).
 
     Args:
-        min_date Union[str, date]: Minimum date in ISO format (YYYY-MM-DD) or a date object.
-        max_date Union[str, date]: Maximum date in ISO format (YYYY-MM-DD) or a date object.
+        min_date Union[str, datetime]: Minimum date in ISO format (YYYY-MM-DD) or a date object.
+        max_date Union[str, datetime]: Maximum date in ISO format (YYYY-MM-DD) or a date object.
 
     Returns:
         str: Random date in ISO format (YYYY-MM-DD).
     """
-    if isinstance(min_date, str):
-        min_date = datetime.strptime(min_date, "%Y-%m-%d").date()
-    if isinstance(max_date, str):
-        max_date = datetime.strptime(max_date, "%Y-%m-%d").date()
-
+    min_date, max_date = str_to_datetime(min_date).date(), str_to_datetime(max_date).date()
     delta_days = (max_date - min_date).days
     if delta_days < 0:
         raise ValueError(colorstr("red", "max_date must be after or equal to min_date."))
 
     random_days = random.randint(0, delta_days)
 
-    return (min_date + timedelta(days=random_days)).strftime("%Y-%m-%d")
+    return datetime_to_str(min_date + timedelta(days=random_days), "%Y-%m-%d")
 
 
 

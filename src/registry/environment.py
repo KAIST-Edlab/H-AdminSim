@@ -10,6 +10,8 @@ from utils.fhir_utils import convert_fhir_resources_to_doctor_info
 from utils.common_utils import (
     get_iso_time,
     get_utc_offset,
+    str_to_datetime,
+    datetime_to_str,
     compare_iso_time,
     exponential_backoff,
     generate_random_iso_time_between,
@@ -60,7 +62,7 @@ class HospitalEnvironment:
         self._utc_offset = get_utc_offset(_country_code)
         self.current_time = get_iso_time(
             time_hour=random.uniform(max(0, self._START_HOUR - 6), max(0, self._START_HOUR - self._epsilon)),
-            date=(datetime.strptime(self._START_DATE, "%Y-%m-%d") - timedelta(days=self._days_before)).strftime("%Y-%m-%d"),
+            date=datetime_to_str(str_to_datetime(self._START_DATE) - timedelta(days=self._days_before), "%Y-%m-%d"),
             utc_offset=self._utc_offset
         )
         self.avg_gap = self.__calculate_max_time_increment()
@@ -75,9 +77,9 @@ class HospitalEnvironment:
 
 
     def __calculate_max_time_increment(self):
-        st = get_iso_time(self._START_HOUR, self._START_DATE, self._utc_offset)
-        tr = get_iso_time(self._END_HOUR, self._END_DATE, self._utc_offset)
-        total_hours = (datetime.fromisoformat(tr) - datetime.fromisoformat(st)).total_seconds() / 3600
+        st = str_to_datetime(get_iso_time(self._START_HOUR, self._START_DATE, self._utc_offset))
+        tr = str_to_datetime(get_iso_time(self._END_HOUR, self._END_DATE, self._utc_offset))
+        total_hours = (tr - st).total_seconds() / 3600
         avg_gap = total_hours / self._PATIENT_NUM
         return avg_gap
 
@@ -174,7 +176,7 @@ class HospitalEnvironment:
         Update the current hospital time.
         """
         min_iso_time = self.current_time
-        max_iso_time = (datetime.fromisoformat(self.current_time) + timedelta(hours=self.avg_gap)).isoformat(timespec='seconds')
+        max_iso_time = (str_to_datetime(self.current_time) + timedelta(hours=self.avg_gap)).isoformat(timespec='seconds')
         self.current_time = generate_random_iso_time_between(min_iso_time, max_iso_time)
 
     
