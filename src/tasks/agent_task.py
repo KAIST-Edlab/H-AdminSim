@@ -174,7 +174,8 @@ class AssignDepartment(Task):
             str: Post-processed text output.
         """
         try:
-            text = text.split()[-1].strip()
+            pattern = re.compile(r'Answer:\s*\d+\.\s*(.+)')
+            text = pattern.match(text).group(1)
         except:
             text = 'wrong'
         return text

@@ -170,7 +170,7 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
         for participant in resource['participant']:
             participant_ref = participant['actor']['reference']
             date = iso_to_date(resource['start'])
-            practitioner_dict = practitioner_ref_to_schedules.setdefault(practitioner_ref, {})
+            practitioner_dict = practitioner_ref_to_schedules.setdefault(participant_ref, {})
             if participant_ref in practitioner_ref_to_name:
                 practitioner_dict[date].append([iso_to_hour(resource['start']), iso_to_hour(resource['end'])])
                 break

@@ -59,9 +59,9 @@ def main(args):
             log("ID and resource type are required for read operation", level='error')
             raise ValueError('ID and resource type are required for read operation')
     
-        response = fhir_manager.read(args.resource_type, args.id)
+        response = fhir_manager.read(args.resource_type[0], args.id)
         if 200 <= response.status_code < 300:
-            log(f"Read {args.resource_type} with ID {args.id}")
+            log(f"Read {args.resource_type[0]} with ID {args.id}")
 
     elif args.mode == 'update':
         if not args.id:
@@ -73,24 +73,25 @@ def main(args):
         resource_data['id'] = args.id
         response = fhir_manager.update(resource_type, args.id, resource_data)
         if  200 <= response.status_code < 300:
-            log(f"Updated {args.resource_type} with ID {args.id}")
+            log(f"Updated {resource_type} with ID {args.id}")
         
     elif args.mode == 'delete':
         if not args.id or not args.resource_type:
             log("ID and resource type are required for delete operation", level='error')
             raise ValueError('ID and resource type are required for delete operation')
         
-        response = fhir_manager.delete(args.resource_type, args.id)
+        response = fhir_manager.delete(args.resource_type[0], args.id)
         if 200 <= response.status_code < 300:
-            log(f"Deleted {args.resource_type} with ID {args.id}")
+            log(f"Deleted {args.resource_type[0]} with ID {args.id}")
 
     elif args.mode == 'read_all':
         if not args.resource_type:
             log("Resource type is required for read_all operation", level='error')
             raise ValueError('Resource type is required for read_all operation')
         
-        all_entries = fhir_manager.read_all(args.resource_type)
-        log(f'Resource type: {args.resource_type}, Total length: {len(all_entries)}', color=True)
+        for resource_type in args.resource_type:
+            all_entries = fhir_manager.read_all(resource_type)
+            log(f'Resource type: {resource_type}, Total length: {len(all_entries)}', color=True)
 
     elif args.mode == 'delete_all':
         if not args.resource_type:
