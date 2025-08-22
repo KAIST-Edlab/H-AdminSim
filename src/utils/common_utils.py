@@ -567,3 +567,24 @@ def convert_time_list_to_merged_time(start: float,
         grouped = group_consecutive_segments(segments)
         time_list = [list(convert_segment_to_time(start, end, interval, group)) for group in grouped]
     return time_list
+
+
+
+def calculate_age(birthdate_str: str) -> int:
+    """
+    Calculate the current age in years based on a birthdate string.
+
+    Args:
+        birthdate_str (str): Birthdate in 'YYYY-MM-DD' format.
+
+    Returns:
+        int: Age in years as an integer.
+    """
+    birthdate = datetime.strptime(birthdate_str, "%Y-%m-%d").date()
+    today = datetime.today().date()
+    
+    age = today.year - birthdate.year
+    # Subtract 1 if the birthday has not occurred yet this year
+    if (today.month, today.day) < (birthdate.month, birthdate.day):
+        age -= 1
+    return age

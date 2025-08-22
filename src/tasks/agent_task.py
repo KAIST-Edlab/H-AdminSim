@@ -1,7 +1,11 @@
+import os
 import json
 from pathlib import Path
 from copy import deepcopy
+from dotenv import load_dotenv
 from typing import Tuple, Union, Optional
+from patientsim import AdminStaffAgent, PatientAgent
+from patientsim.environment import OPSimulation
 
 from tools import (
     GeminiClient,
@@ -19,6 +23,7 @@ from utils.common_utils import (
     convert_time_to_segment,
     compare_iso_time,
     get_utc_offset,
+    calculate_age,
     get_iso_time,
 )
 
@@ -140,26 +145,8 @@ class Task:
 class AssignDepartment(Task):
     def __init__(self, config):
         self.name = 'department'
-        self.__init_env(config)
-        self.system_prompt = txt_load(self._system_prompt_path)
-        self.user_prompt_template = txt_load(self._user_prompt_path)
-        if 'gemini' in config.model.lower():
-            self.client = GeminiClient(config.model)
-        elif 'gpt' in config.model.lower():
-            self.client = GPTClient(config.model)
-        else:
-            self.client = VLLMClient(config.model, config.vllm_url)
-
-
-    def __init_env(self, config):
-        """
-        Initialize necessary variables.
-
-        Args:
-            config (Config): Configuration for agent tasks.
-        """
-        self._system_prompt_path = config.department_task.system_prompt
-        self._user_prompt_path = config.department_task.user_prompt
+        self.model = config.model
+        load_dotenv(override=True)
 
     
     @staticmethod
@@ -175,7 +162,7 @@ class AssignDepartment(Task):
         """
         try:
             pattern = re.compile(r'Answer:\s*\d+\.\s*(.+)')
-            text = pattern.match(text).group(1)
+            text = pattern.search(text).group(1)
         except:
             text = 'wrong'
         return text
@@ -202,7 +189,6 @@ class AssignDepartment(Task):
         """
         gt, test_data = data_pair
         departments = list(agent_test_data['department'].keys())
-        options = ''.join([f'{i+1}. {department}\n' for i, department in enumerate(departments)])
         results = self.get_result_dict()
         
         # Append a ground truth
@@ -210,13 +196,21 @@ class AssignDepartment(Task):
         results['gt'].append(gt_department)
         
         # LLM call
-        user_prompt = self.user_prompt_template.format(SYMPTOM=test_data['symptom'], OPTIONS=options)
-        prediction = self.client(
-            user_prompt,
-            system_prompt=self.system_prompt, 
-            using_multi_turn=False
+        patient_agent = PatientAgent(
+            self.model,
+            'outpatient',
+            department=gt_department,
+            symptom=test_data['symptom'],
+            age=calculate_age(test_data['birthDate']),
+            gender=test_data['gender'],
         )
-        prediction = AssignDepartment.postprocessing(prediction)
+        admin_staff_agent = AdminStaffAgent(
+            self.model,
+            departments,
+        )
+        environment = OPSimulation(patient_agent, admin_staff_agent)
+        dialogs = environment.simulate(verbose=False)
+        prediction = AssignDepartment.postprocessing(dialogs[-1]['content'])
         
         # Append results
         status = gt_department == prediction
