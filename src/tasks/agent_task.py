@@ -386,6 +386,7 @@ class AssignSchedule(Task):
                 
         # Finally update schedule of the doctor
         doctor_information[doctor_name]['schedule'][date].append([start, end])    # In-place logic
+        doctor_information[doctor_name]['schedule'][date].sort()
         prediction = {
             'patient': patient_condition.get('patient'),
             'attending_physician': doctor_name,
