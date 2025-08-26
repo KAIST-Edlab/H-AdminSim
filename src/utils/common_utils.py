@@ -1,4 +1,3 @@
-import re
 import pytz
 import random
 from decimal import Decimal, getcontext

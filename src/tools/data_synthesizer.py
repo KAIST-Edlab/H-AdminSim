@@ -94,20 +94,8 @@ class DataSynthesizer:
             days
         )
         interval_hour = float(config.hospital_data.interval_hour)
-        start_hour = float(round(random.choice(
-            np.arange(
-                config.hospital_data.start_hour.min,
-                config.hospital_data.start_hour.max+interval_hour,  # Ensure the end hour is inclusive
-                interval_hour
-            )
-        ), 4))
-        end_hour = float(round(random.choice(
-            np.arange(
-                config.hospital_data.end_hour.min,
-                config.hospital_data.end_hour.max+interval_hour,  # Ensure the end hour is inclusive
-                interval_hour
-            )
-        ), 4))
+        start_hour = float(random.randint(config.hospital_data.start_hour.min, config.hospital_data.start_hour.max))
+        end_hour = float(random.randint(config.hospital_data.end_hour.min, config.hospital_data.end_hour.max))
         department_n = random.randint(
             config.hospital_data.department_per_hospital.min,
             config.hospital_data.department_per_hospital.max
@@ -115,6 +103,8 @@ class DataSynthesizer:
         doctor_n_per_department = [random.randint(config.hospital_data.doctor_per_department.min, config.hospital_data.doctor_per_department.max) 
                                    for _ in range(department_n)]
         doctor_n = sum(doctor_n_per_department)
+        doctor_capacity_per_hour_list = [c for c in range(config.hospital_data.doctor_capacity_per_hour.min, config.hospital_data.doctor_capacity_per_hour.max + 1) \
+                                         if 1/c % interval_hour == 0]
         hospital_time_segments = convert_time_to_segment(start_hour, end_hour, interval_hour)
         metadata = Information(
             hospital_name=hospital_name,
@@ -155,6 +145,7 @@ class DataSynthesizer:
                         'code': spe_code,
                     },
                     'schedule': {},
+                    'capcity': random.choice(doctor_capacity_per_hour_list),
                     'gender': generate_random_code('gender'),
                     'telecom': [{
                         'system': 'phone',
@@ -196,7 +187,7 @@ class DataSynthesizer:
                         ),
                         True,
                         patient_segments,
-                        max_chunk_size=config.hospital_data.appointment_coverage_ratio.max_chunk_size
+                        max_chunk_size=1
                     )
                     patients = DataSynthesizer.name_list_generator(len(appointments))
                     for patient, appointment in zip(patients, appointments):

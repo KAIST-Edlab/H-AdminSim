@@ -32,18 +32,6 @@ def load_config(config_path):
     return config
 
 
-# TODO: Legacy, this will be deleted.
-def ordering_agent_test_data(agent_test_data: dict):
-    """
-    Order the agent test data by the schedule start time.
-
-    Args:
-        agent_test_data (dict): An agent test data to simulate a hospital environmnet.
-    """
-    agent_data = agent_test_data['agent_data']
-    agent_data.sort(key=lambda x: x[0]['schedule']['time'])     # In-place logic
-
-
 def shuffle_agent_test_data(agent_test_data: dict):
     """
     Shuffle the agent test data by the schedule start time.
@@ -63,16 +51,11 @@ def main(args):
     env_setup(config)
 
     # Initialize tasks
-    # TODO: fhir-related tasks are legacy
     queue = list()
-    if 'department' in args.type:
-        queue.append(AssignDepartment(config))
+    if 'intake' in args.type:
+        queue.append(OutpatientIntake(config))
     if 'schedule' in args.type:
         queue.append(AssignSchedule(config))
-    if 'fhir_resource' in args.type:
-        queue.append(MakeFHIRResource(config))
-    if 'fhir_api' in args.type:
-        queue.append(MakeFHIRAPI(config))
 
     # Initialize agent test data
     is_file = os.path.isfile(config.agent_test_data)
@@ -128,7 +111,7 @@ def main(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
-    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['department', 'schedule'], help='Task types you want to execute (you can specify multiple)')
+    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['intake', 'schedule'], help='Task types you want to execute (you can specify multiple)')
     parser.add_argument('-o', '--output_dir', type=str, required=True, help='Path to save agent test results')
     parser.add_argument('-s', '--skip_saved_file', action='store_true', required=False, help='Skip inference if results already exit')
     args = parser.parse_args()
