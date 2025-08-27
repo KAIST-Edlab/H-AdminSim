@@ -1,0 +1,17 @@
+Here are the doctor’s schedule information and the scheduling result.
+However, an error has occurred, and the reason is explained in the error code below.
+Please refer to the error code and provide the appropriate feedback to help ensure successful scheduling.
+
+
+Doctor information and their {DAY}-day schedules:
+```json
+{DOCTOR}
+```
+
+Scheduling results:
+{RESULTS}
+
+
+Error code:
+{ERROR_CODE}
+{REASON}

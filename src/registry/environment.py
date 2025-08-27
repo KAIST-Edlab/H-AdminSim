@@ -24,19 +24,6 @@ class HospitalEnvironment:
         self.fhir_manager = FHIRManager(config)
         self.__init_variable(config, agent_test_data)
         
-        # Define error codes
-        self.status_codes = {
-            'format': 'reschedule: incorrect format',
-            'information': 'reschedule: information mismatch',
-            'physician': 'reschedule: incorrect physician',
-            'schedule': 'reschedule: invalid schedule',
-            'priority': {'priority': 'reschedule: lower priority', 'booking': 'reschedule: booking priority'},
-            'flexibility': 'reschedule: invalid flexibility',
-            'status': 'reschedule: invalid status',
-            'conflict': 'reschedule: schedule conflict',
-            'correct': 'pass',
-        }
-
 
     def __init_variable(self, config, agent_test_data: dict):
         """

@@ -2,11 +2,13 @@ Below is information about the hospital's operating hours, patient details, and 
 Based on the patient information, assign the patient to a suitable doctor and schedule them into an available time slot.
 Respond in JSON format only, as shown in the example below.
 
+
 Hospital time information:
 * Start_hour: {START_HOUR}
 * End_hour: {END_HOUR}
 * Time unit: {TIME_UNIT}
 * Current time: {CURRENT_TIME}
+
 
 Patient information:
 * Department: {DEPARTMENT}
@@ -14,10 +16,16 @@ Patient information:
 * Preference: {PREFERENCE}
 * Preferred doctor: {PREFERRED_DOCTOR}
 
+
 Doctor information and their {DAY}-day schedules:
 ```json
 {DOCTOR}
 ```
+
+Example of how to read schedules:
+* [9.0, 10.25]: Indicates a schedule from 9:00 to 10:15.
+* [10.5, 17.0]: Indicates a schedule from 10:30 to 17:00.
+
 
 Patient scheduling instructions:
 1. If the patient has a preferred doctor, the appointment must be scheduled with that doctor.
@@ -25,6 +33,7 @@ Patient scheduling instructions:
 3. Appointment times must be later than the "current time" (ISO format) provided in the "Hospital time information" above.
 4. If more than one doctor is available, appointments should be distributed as evenly as possible to balance the doctors' workloads.
 5. Output the patient's scheduled appointment as the value of the 'schedule' key in the JSON format shown below.
+
 
 Answer format examples:
 Example 1:
@@ -35,3 +44,7 @@ Example 2:
 ```json
 {{"schedule": {{"Dr. Willard Wittmann": {{"date": "2024-12-10", "start": 13, "end": 14.5}}}}}}
 ```
+
+
+Feedback of your previous result:
+{FEEDBACK}

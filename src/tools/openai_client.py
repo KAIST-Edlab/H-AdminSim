@@ -17,7 +17,7 @@ class GPTClient:
         self.model = model
         self._init_environment()
         self.histories = list()
-        self._multi_turn_system_prompt_already_set = False
+        self.__first_turn = True
 
 
     def _init_environment(self):
@@ -28,26 +28,17 @@ class GPTClient:
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", None))
 
     
-    def reset_history(self, keep_system_prompt: bool = False):
+    def reset_history(self, verbose: bool = True) -> None:
         """
         Reset the conversation history.
 
         Args:
-            keep_system_prompt (bool): Whether to retain the system prompt after reset.
-                                       Defaults to False.
+            verbose (bool): Whether to print verbose output. Defaults to True.
         """
-        system_message = None
-        if keep_system_prompt:
-            for msg in self.histories:
-                if msg["role"] == "system":
-                    system_message = msg
-                    break
-        else:
-            self._multi_turn_system_prompt_already_set = False
-
-        self.histories = []
-        if system_message:
-            self.histories.append(system_message)
+        self.__first_turn = True
+        self.histories = list()
+        if verbose:
+            log('Conversation history has been reset.', color=True)
 
     
     def __make_payload(self,
@@ -95,6 +86,7 @@ class GPTClient:
                  image_path: Optional[str] = None,
                  image_size: Optional[Tuple[int]] = None,
                  using_multi_turn: bool = False,
+                 verbose: bool = True,
                  **kwargs) -> str:
         """
         Sends a chat completion request to the model with optional image input and system prompt.
@@ -105,6 +97,7 @@ class GPTClient:
             image_path (Optional[str], optional): Path to an image file to be included in the prompt. Defaults to None.
             image_size (Optional[Tuple[int]], optional): The target image size in (width, height) format, if resizing is needed. Defaults to None.
             using_multi_turn (bool): Whether to structure it as multi-turn. Defaults to False.
+            verbose (bool): Whether to print verbose output. Defaults to True.
 
         Raises:
             FileNotFoundError: If `image_path` is provided but the file does not exist.
@@ -117,46 +110,27 @@ class GPTClient:
             raise FileNotFoundError
         
         try:
-            if using_multi_turn:
-                # To ensure the only one system prompt
-                if self._multi_turn_system_prompt_already_set and system_prompt:
-                    log('Since the initial system prompt was already set, the current system prompt is ignored.', 'warning')
-                    system_prompt = None
-
+            # To ensure empty history
+            if not using_multi_turn:
+                self.reset_history(verbose)
+            
+            if self.__first_turn:
                 # System prompt
                 if system_prompt:
                     self.histories.append({"role": "system", "content": system_prompt})
-                    self._multi_turn_system_prompt_already_set = True
-                
-                # User prompt
-                self.histories += self.__make_payload(user_prompt, image_path, image_size)
-                
-                # Model response
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=self.histories,
-                    **kwargs
-                )
-                assistant_msg = response.choices[0].message
-                self.histories.append({"role": assistant_msg.role, "content": assistant_msg.content})
+                self.__first_turn = False
+            
+            # User prompt
+            self.histories += self.__make_payload(user_prompt, image_path, image_size)
 
-            else:
-                # To ensure empty history
-                self.reset_history()
-                
-                # System prompt
-                payloads = [{"role": "system", "content": system_prompt}] if system_prompt else []
-                
-                # User prompt
-                payloads += self.__make_payload(user_prompt, image_path, image_size)
-                
-                # Model response
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=payloads,
-                    **kwargs
-                )
-                assistant_msg = response.choices[0].message
+            # Model response
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.histories,
+                **kwargs
+            )
+            assistant_msg = response.choices[0].message
+            self.histories.append({"role": assistant_msg.role, "content": assistant_msg.content})
 
             return assistant_msg.content
         

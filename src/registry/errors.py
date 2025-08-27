@@ -1,0 +1,43 @@
+STATUS_CODES = {
+    'format': 'incorrect format',
+    'department': 'incorrect department',
+    'patient': 'incorrect patient information',
+    'department & patient': 'incorrect department and patient information',
+    'simulation': 'incomplete simulation',
+    'schedule': 'invalid schedule',
+    'conflict': {
+        'physician': 'physician conflict', 
+        'time': 'time conflict'
+    },
+    'preference': {
+        'physician': 'mismatched physician',
+        'asap': 'not earlist schedule'
+    },
+    'preceding': 'preceding task failed',
+    'correct': 'pass',
+}
+
+SCHEDULING_ERROR_CAUSE = {
+    'incorrect format': [
+        '* There is an issue with the output format. Please perform scheduling in the correct format.'
+    ],
+    'physician conflict': [
+        '* More than one doctor has been assigned. A schedule must be made with exactly one doctor.'
+    ],
+    'time conflict': [
+        "* The scheduling result overlaps with the doctor's existing schedule."
+    ],
+    'mismatched physician': [
+        '* A different doctor was assigned even though the patient requested a specific doctor.'
+    ],
+    'not earlist schedule': [
+        '* The patient wants the earliest possible appointment in the department, but the assigned time is not the earliest available based on the current time.'
+    ],
+    'invalid schedule': [
+        "* The scheduling result may fall outside the hospital's operating hours.",
+        "* The scheduling result may be in the past relative to the current time.",
+        "* The scheduling result may not be a valid date.",
+        "* The patient's required duration does not match the scheduled duration.",
+        "* The assigned doctor may not belong to the department the patient should visit."
+    ]
+}
