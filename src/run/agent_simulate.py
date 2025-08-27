@@ -3,7 +3,6 @@ import sys
 import random
 import numpy as np
 from sconf import Config
-from copy import deepcopy
 from argparse import ArgumentParser
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
@@ -79,9 +78,17 @@ def main(args):
             # Skip if the result already exits
             if args.skip_saved_file and os.path.exists(save_path):
                 continue
+
+            if args.continuing:
+                agent_results = json_load(save_path)
+                key = list(agent_results.keys())[0]
+                done_length = len(agent_results[key]['gt'])
             
             # Data per patient
-            for gt, test_data in agent_test_data['agent_data']:
+            for j, (gt, test_data) in enumerate(agent_test_data['agent_data']):
+                if args.continuing and j < done_length:
+                    continue
+
                 for task in queue:
                     result = task((gt, test_data), agent_test_data, agent_results, environment)
                     
@@ -103,6 +110,7 @@ def main(args):
         log(f"Agent completed the tasks successfully", color=True)
     
     except Exception as e:
+        json_save_fast(save_path, agent_results)
         log("Error occured while execute the tasks.", level='error')
         raise e
     
@@ -113,7 +121,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
     parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['intake', 'schedule'], help='Task types you want to execute (you can specify multiple)')
     parser.add_argument('-o', '--output_dir', type=str, required=True, help='Path to save agent test results')
-    parser.add_argument('-s', '--skip_saved_file', action='store_true', required=False, help='Skip inference if results already exit')
+    parser.add_argument('--skip_saved_file', action='store_true', required=False, help='Skip inference if results already exsist')
+    parser.add_argument('--continuing', action='store_true', required=False, help='Continue the stopped processing')
     args = parser.parse_args()
 
     main(args)
