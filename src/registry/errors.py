@@ -31,7 +31,8 @@ SCHEDULING_ERROR_CAUSE = {
         '* A different doctor was assigned even though the patient requested a specific doctor.'
     ],
     'not earlist schedule': [
-        '* The patient wants the earliest possible appointment in the department, but the assigned time is not the earliest available based on the current time.'
+        '* The patient wants the earliest possible appointment in the department, but the assigned time is not the earliest available based on the current time.',
+        '* When scheduling, it is possible to assign an earlier date or time.'
     ],
     'invalid schedule': [
         "* The scheduling result may fall outside the hospital's operating hours.",

@@ -17,22 +17,25 @@ Patient information:
 * Preferred doctor: {PREFERRED_DOCTOR}
 
 
+Example of how to read schedules:
+* [9.0, 10.25]: Indicates an occupied (booked) schedule from 9:00 to 10:15.
+* [10.5, 17.0]: Indicates an occupied (booked) schedule from 10:30 to 17:00.
+
+
 Doctor information and their {DAY}-day schedules:
+NOTE: The schedule field lists the time intervals that are already occupied (booked) for each date. Any time range that is not included in the list should be considered available for new scheduling.
 ```json
 {DOCTOR}
 ```
 
-Example of how to read schedules:
-* [9.0, 10.25]: Indicates a schedule from 9:00 to 10:15.
-* [10.5, 17.0]: Indicates a schedule from 10:30 to 17:00.
-
 
 Patient scheduling instructions:
 1. If the patient has a preferred doctor, the appointment must be scheduled with that doctor.
-2. Assign appointments sequentially in the available time slots of doctors in the patient's department, according to the patient's requirements.
+2. If the patient wants the earliest possible appointment, compare the available times of the doctors in the patient’s department and schedule the appointment with the doctor who can see the patient the soonest.
 3. Appointment times must be later than the "current time" (ISO format) provided in the "Hospital time information" above.
 4. If more than one doctor is available, appointments should be distributed as evenly as possible to balance the doctors' workloads.
 5. Output the patient's scheduled appointment as the value of the 'schedule' key in the JSON format shown below.
+6. Schedule appointments between the patient and the doctor while satisfying the above conditions, following the basic principle of booking sequentially from the earliest available date and time.
 
 
 Answer format examples:
@@ -46,5 +49,8 @@ Example 2:
 ```
 
 
-Feedback of your previous result:
+Your previous wrong answers:
+{PREV_ANSWER}
+
+Feedback on your latest answer:
 {FEEDBACK}

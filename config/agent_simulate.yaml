@@ -2,13 +2,14 @@
 seed: 9999
 
 # LLM model
-model: gemini-2.5-flash-preview-05-20
+supervisor_model: gpt-4o
+task_model: gemini-2.5-flash-preview-05-20
 ensure_output_format: False     # If you set to True, JsonOutputParser provided from LangChain will be used.
 vllm_url: http://0.0.0.0:8000     # Used only when using vllm.
 
 # Agent test data and converted FHIR data folder
-agent_test_data: synthetic_data/hospital_easy_small/agent_data
-fhir_data: synthetic_data/hospital_easy_small/fhir_data
+agent_test_data: synthetic_data/hospital_small/agent_data
+fhir_data: synthetic_data/hospital_small/fhir_data
 fhir_url: http://localhost:8080/fhir
 integration_with_fhir: False
 
@@ -17,15 +18,13 @@ booking_days_before_simulation: 3       # Number of days before the simulation d
 fhir_max_connection_retries: 5          # Maximum number of retry attempts when retrieving data from the FHIR server
 
 # Prompt paths
-department_task:
-    system_prompt: asset/prompts/department_system.txt
-    user_prompt: asset/prompts/department_user.txt
+outpatient_intake:
+    supervisor_system_prompt: asset/prompts/intake_supervisor_system.txt
+    supervisor_user_prompt: asset/prompts/intake_supervisor_user.txt
 schedule_task:
-    system_prompt: asset/prompts/schedule_system.txt
-    user_prompt: asset/prompts/schedule_user.txt
-fhir_resource_task:
-    system_prompt: asset/prompts/fhir_resource_system.txt
-    user_prompt: asset/prompts/fhir_resource_user.txt
-fhir_api_task:
-    system_prompt: asset/prompts/fhir_api_system.txt
-    user_prompt: asset/prompts/fhir_api_user.txt
+    use_supervisor: True
+    max_feedback_number: 5
+    supervisor_system_prompt: asset/prompts/schedule_supervisor_system.txt
+    supervisor_user_prompt: asset/prompts/schedule_supervisor_user.txt
+    task_system_prompt: asset/prompts/schedule_task_system.txt
+    task_user_prompt: asset/prompts/schedule_task_user.txt

@@ -13,12 +13,12 @@ from utils.filesys_utils import json_load, json_save_fast, yaml_save, get_files
 
 
 
-def env_setup(config):
+def env_setup(config, is_continue):
     random.seed(config.seed)
     np.random.seed(config.seed)
 
     # Delete Patient and Appointment resources when starting a simulation
-    if config.integration_with_fhir:
+    if config.integration_with_fhir and not is_continue:
         fhir_manager = FHIRManager(config)
         appointment_entries = fhir_manager.read_all('Appointment')
         patient_entries = fhir_manager.read_all('Patient')
@@ -47,7 +47,7 @@ def main(args):
     config.yaml_file = args.config
     
     # Init environment
-    env_setup(config)
+    env_setup(config, args.continuing)
 
     # Initialize tasks
     queue = list()
@@ -83,6 +83,13 @@ def main(args):
                 agent_results = json_load(save_path)
                 key = list(agent_results.keys())[0]
                 done_length = len(agent_results[key]['gt'])
+
+                if 'schedule' in agent_results:
+                    fixed_schedule = agent_test_data['doctor']
+                    for status, pred in zip(agent_results['schedule']['status'], agent_results['schedule']['pred']):
+                        if status:
+                            fixed_schedule[pred['attending_physician']]['schedule'][pred['date']].append(pred['schedule'])
+                            fixed_schedule[pred['attending_physician']]['schedule'][pred['date']].sort()
             
             # Data per patient
             for j, (gt, test_data) in enumerate(agent_test_data['agent_data']):

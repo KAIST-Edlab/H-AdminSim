@@ -1,9 +1,19 @@
 Here are the doctor’s schedule information and the scheduling result.
 However, an error has occurred, and the reason is explained in the error code below.
 Please refer to the error code and provide the appropriate feedback to help ensure successful scheduling.
+Lastly, review the doctor's schedule and recommend a final available schedule by reflecting your feedback.
+In addition, make sure to append the appointments sequentially into the available time slots within the hospital’s operating hours.
+
+
+Hospital time information:
+* Start_hour: {START_HOUR}
+* End_hour: {END_HOUR}
+* Time unit: {TIME_UNIT}
+* Current time: {CURRENT_TIME}
 
 
 Doctor information and their {DAY}-day schedules:
+NOTE: The schedule field lists the time intervals that are already occupied (booked) for each date. Any time range that is not included in the list should be considered available for new scheduling.
 ```json
 {DOCTOR}
 ```

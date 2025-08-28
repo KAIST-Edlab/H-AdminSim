@@ -1,8 +1,6 @@
-import os
 import json
 from pathlib import Path
 from copy import deepcopy
-from dotenv import load_dotenv
 from typing import Tuple, Union, Optional
 from patientsim import AdminStaffAgent, PatientAgent
 from patientsim.environment import OPSimulation
@@ -15,6 +13,7 @@ from tools import (
     VLLMClient,
     DataConverter,
 )
+from registry import STATUS_CODES, SCHEDULING_ERROR_CAUSE
 from utils import log
 from utils.fhir_utils import *
 from utils.filesys_utils import txt_load, json_load
@@ -23,26 +22,12 @@ from utils.common_utils import (
     convert_time_to_segment,
     compare_iso_time,
     get_utc_offset,
-    calculate_age,
     get_iso_time,
 )
 
 
 
 class Task:
-    # Definition of status codes
-    status_codes = {
-        'department': 'incorrect department',
-        'format': 'incorrect format',
-        'schedule': 'invalid schedule',
-        'conflict': {'physician': 'physician conflict', 'time': 'time conflict'},
-        'preference': {'doctor': 'mismatched doctor', 'asap': 'not earlist schedule'},
-        'curl': {'http': 'incorrect http method', 'header': 'incorrect header', 'payload': 'incorrect payload', 'url': 'incorrect url'},
-        'preceding': 'preceding task failed',
-        'correct': 'pass',
-    }
-
-
     def get_result_dict(self) -> dict:
         """
         Initialize result dictionary.
@@ -97,6 +82,7 @@ class Task:
             return gt_resource
         
     
+    # TODO: deprecated function
     def sanity_check_recursively(self, prediction: dict, expected_prediction: dict) -> bool:
         """
         Recursively compares two nested data structures (dictionaries and lists) 
@@ -142,17 +128,33 @@ class Task:
 
 
 
-class AssignDepartment(Task):
+class OutpatientIntake(Task):
     def __init__(self, config):
-        self.name = 'department'
-        self.model = config.model
-        load_dotenv(override=True)
+        # Initialize variables
+        self.name = 'intake'
+        self.supervisor_model = config.supervisor_model
+        self.task_model = config.task_model
+        self._sup_system_prompt_path = config.outpatient_intake.supervisor_system_prompt
+        self._sup_user_prompt_path = config.outpatient_intake.supervisor_user_prompt
+        self.ensure_output_format = config.ensure_output_format
+        
+        # Initialize prompts
+        self.system_prompt = txt_load(self._sup_system_prompt_path)
+        self.user_prompt_template = txt_load(self._sup_user_prompt_path)
+
+        # Initialize models
+        if 'gemini' in self.supervisor_model.lower():
+            self.supervisor_client = GeminiLangChainClient(self.supervisor_model) if self.ensure_output_format else GeminiClient(self.supervisor_model)
+        elif 'gpt' in self.supervisor_model.lower():
+            self.supervisor_client = GPTLangChainClient(self.supervisor_model) if self.ensure_output_format else GPTClient(self.supervisor_model)
+        else:
+            self.supervisor_client = VLLMClient(self.supervisor_model, config.vllm_url)
 
     
     @staticmethod
-    def postprocessing(text: str) -> str:
+    def postprocessing_department(text: str) -> str:
         """
-        Post-processing method of text output.
+        Post-processing method of text output, especially for the department decision.
 
         Args:
             text (str): Text input.
@@ -167,6 +169,103 @@ class AssignDepartment(Task):
             text = 'wrong'
         return text
 
+    
+    @staticmethod
+    def postprocessing_information(text: str) -> Union[str, dict]:
+        """
+        Post-processing method of text output, especially for the patient information extraction.
+
+        Args:
+            text (str): Text input.
+
+        Returns:
+            Union[str, dict]: A dictionary if the text is valid JSON, otherwise the original string.
+        """
+        try:
+            if isinstance(text, str):
+                match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+                if not match:
+                    return text
+                json_str = match.group(1)
+                text_dict = json.loads(json_str)
+                
+            else:
+                text_dict = text
+            
+            assert len(text_dict) == 4 and all(k in text_dict for k in ['name', 'birth_date', 'gender', 'department'])   # Basic sanity check
+            return text_dict
+        except:
+            return str(text)
+        
+    
+    def _department_decision(self, prediction_department: str, prediction_supervison: Union[str, dict]) -> str:
+        """
+        Determine the final department decision by considering both 
+        the interaction agent result and the supervisor agent result.
+
+        Args:
+            prediction_department (str): The department predicted by the interaction agent.
+            prediction_supervison (Union[str, dict]): The supervisor agent's result. 
+                If this is a dictionary, it should contain a 'department' field.
+
+        Returns:
+            str: The final department decision.
+        """
+        if isinstance(prediction_supervison, dict):
+            department = prediction_supervison.pop('department')
+            return department
+        return prediction_department
+        
+    
+    def _sanity_check(self,
+                      prediction: dict, 
+                      gt: dict,
+                      conversations: str) -> Tuple[bool, str, Union[str, dict], dict]:
+        """
+        Performs a sanity check on the predicted patient information and department against the ground truth.
+
+        This method validates:
+        1. The format of the prediction (must be a dictionary for patient info).
+        2. Completeness of the conversation simulation (all ground truth patient values must appear in the conversation).
+        3. Accuracy of both the predicted department and patient information.
+
+        Args:
+            prediction (dict): The output generated by the model. Expected to contain:
+                - 'patient': dict of patient demographic information (e.g., name, birth date, gender)
+                - 'department': str representing the predicted department
+            gt (dict): The ground truth data. Expected to contain:
+                - 'patient': dict of correct patient demographic information
+                - 'department': str of the correct department
+            conversations (str): The full conversation text between the patient and administration staff.
+
+        Returns:
+            Tuple[bool, str, Union[str, dict], dict]:
+                - bool: True if the prediction passes all sanity checks, False otherwise
+                - str: Status code indicating the type of check passed or failed
+                - Union[str, dict]: The prediction that was checked (or raw value if parsing failed)
+                - dict: Additional details or metadata (currently returns the prediction dict)
+        """
+        ############################ Check the prediciton format #############################
+        if not isinstance(prediction['patient'], dict):
+            return False, STATUS_CODES['format'], prediction    # Could not be parsed as a dictionary
+        
+        ############################ Incomplete simulation case #############################
+        # TODO: birth date가 simulation에 나왔는지 여부 판단하는 로직 추가 필요
+        if not all(v in conversations for k, v in gt['patient'].items() if k != 'birth_date'):
+            return False, STATUS_CODES['simulation'], prediction
+        
+        ############################ Check with the ground truth #############################
+        wrong_department = prediction['department'] != gt['department']
+        wrong_info = prediction['patient'] != gt['patient']
+        if wrong_department and wrong_info:
+            return False, STATUS_CODES['department & patient'], prediction
+        elif wrong_department:
+            return False, STATUS_CODES['department'], prediction
+        elif wrong_info:
+            return False, STATUS_CODES['patient'], prediction
+        
+        return True, STATUS_CODES['correct'], prediction
+        
 
     def __call__(self, data_pair: Tuple[dict, dict],  agent_test_data: dict, agent_results: dict, environment) -> dict:
         """
@@ -192,29 +291,70 @@ class AssignDepartment(Task):
         results = self.get_result_dict()
         
         # Append a ground truth
-        gt_department = gt['department']
-        results['gt'].append(gt_department)
+        name, gender, birth_date = test_data['patient'], test_data['gender'], test_data['birthDate']
+        gt_data = {
+            'patient': {
+                'name': name, 
+                'birth_date': birth_date, 
+                'gender': gender
+            }, 
+            'department': gt['department']
+        }
+        results['gt'].append(gt_data)
         
-        # LLM call
+        # LLM call: Conversation and department decision
         patient_agent = PatientAgent(
-            self.model,
+            self.task_model,
             'outpatient',
-            department=gt_department,
+            lang_proficiency_level='B',
+            department=gt['department'],
             symptom=test_data['symptom'],
-            age=calculate_age(test_data['birthDate']),
-            gender=test_data['gender'],
+            name=name,
+            birth_date=birth_date,
+            gender=gender,
         )
         admin_staff_agent = AdminStaffAgent(
-            self.model,
+            self.task_model,
             departments,
         )
         environment = OPSimulation(patient_agent, admin_staff_agent)
         dialogs = environment.simulate(verbose=False)
-        prediction = AssignDepartment.postprocessing(dialogs[-1]['content'])
+        prediction_department = OutpatientIntake.postprocessing_department(dialogs[-1]['content'])
+
+        # LLM call: Supervisor which should extract demographic information of the patient and evaluation the department decision result
+        dialogs = '\n'.join([f"{turn['role']}: {' '.join(turn['content'].split())}" for turn in dialogs])
+        if self.ensure_output_format:
+            prediction_supervision = self.supervisor_client(
+                user_prompt=self.user_prompt_template,
+                system_prompt=self.system_prompt,
+                **{
+                    'CONVERSATION': dialogs,
+                    'DEPARTMENTS': ''.join([f'{i+1}. {department}\n' for i, department in enumerate(departments)])
+                }
+            )
+        else:
+            user_prompt = self.user_prompt_template.format(
+                CONVERSATION=dialogs,
+                DEPARTMENTS=''.join([f'{i+1}. {department}\n' for i, department in enumerate(departments)])
+            )
+            prediction_supervision = self.supervisor_client(
+                user_prompt,
+                system_prompt=self.system_prompt, 
+                using_multi_turn=False,
+                verbose=False
+            )
+        prediction_supervision = OutpatientIntake.postprocessing_information(prediction_supervision)
+
+        # Sanity check
+        department = self._department_decision(prediction_department, prediction_supervision)
+        prediction = {'patient': prediction_supervision, 'department': department}
+        status, status_code, prediction = self._sanity_check(
+            prediction=prediction,
+            gt=gt_data,
+            conversations=dialogs
+        )
         
         # Append results
-        status = gt_department == prediction
-        status_code = self.status_codes['correct'] if status else self.status_codes['department']
         results['pred'].append(prediction)
         results['status'].append(status)
         results['status_code'].append(status_code)
@@ -225,34 +365,47 @@ class AssignDepartment(Task):
 
 class AssignSchedule(Task):
     def __init__(self, config):
+        # Initialize variables
         self.name = 'schedule'
-        self.__init_env(config)
-        self.system_prompt = txt_load(self._system_prompt_path)
-        self.user_prompt_template = txt_load(self._user_prompt_path)
-        if 'gemini' in config.model.lower():
-            self.client = GeminiLangChainClient(config.model) if self.ensure_output_format else GeminiClient(config.model)
-        elif 'gpt' in config.model.lower():
-            self.client = GPTLangChainClient(config.model) if self.ensure_output_format else GPTClient(config.model)
-        else:
-            self.client = VLLMClient(config.model, config.vllm_url)
+        self.use_supervisor = config.schedule_task.use_supervisor
+        self.task_model = config.task_model
+        self._task_system_prompt_path = config.schedule_task.task_system_prompt
+        self._task_user_prompt_path = config.schedule_task.task_user_prompt
+        self.ensure_output_format = config.ensure_output_format
+        self.integration_with_fhir = config.integration_with_fhir
         self.preference_phrase = {
             'asap': 'The patient wants the earliest available doctor in the department for the outpatient visit.',
             'doctor': 'The patient has a preferred doctor for the outpatient visit.'
         }
 
+        # Initialize prompts
+        self.task_system_prompt = txt_load(self._task_system_prompt_path)
+        self.task_user_prompt_template = txt_load(self._task_user_prompt_path)
 
-    def __init_env(self, config):
-        """
-        Initialize necessary variables.
+        # Initialize task model
+        if 'gemini' in self.task_model.lower():
+            self.task_client = GeminiLangChainClient(self.task_model) if self.ensure_output_format else GeminiClient(self.task_model)
+        elif 'gpt' in self.task_model.lower():
+            self.task_client = GPTLangChainClient(self.task_model) if self.ensure_output_format else GPTClient(self.task_model)
+        else:
+            self.task_client = VLLMClient(self.task_model, config.vllm_url)
 
-        Args:
-            config (Config): Configuration for agent tasks.
-        """
-        self._system_prompt_path = config.schedule_task.system_prompt
-        self._user_prompt_path = config.schedule_task.user_prompt
-        self.ensure_output_format = config.ensure_output_format
-        self.integration_with_fhir = config.integration_with_fhir
+        # If you use supervisor model
+        if self.use_supervisor:
+            self.supervisor_model = config.supervisor_model
+            self._sup_system_prompt_path = config.schedule_task.supervisor_system_prompt
+            self._sup_user_prompt_path = config.schedule_task.supervisor_user_prompt
+            self.sup_system_prompt = txt_load(self._sup_system_prompt_path)
+            self.sup_user_prompt_template = txt_load(self._sup_user_prompt_path)
+            self.max_feedback_number = config.schedule_task.max_feedback_number
 
+            if 'gemini' in self.supervisor_model.lower():
+                self.supervisor_client = GeminiClient(self.supervisor_model)
+            elif 'gpt' in self.supervisor_model.lower():
+                self.supervisor_client = GPTClient(self.supervisor_model)
+            else:
+                self.supervisor_client = VLLMClient(self.supervisor_model, config.vllm_url)
+        
     
     @staticmethod
     def postprocessing(text: Union[str, dict]) -> Union[str, dict]:
@@ -301,14 +454,94 @@ class AssignSchedule(Task):
             Tuple[str, bool]: A department, either predicted or ground truth and its sanity status.
         """
         try:
-            department = agent_results['department']['pred'][-1]
-            sanity = agent_results['department']['status'][-1]
+            department = agent_results['intake']['pred'][-1]['department']
+            sanity = agent_results['intake']['status'][-1]
         except:
             log('The predicted department is not given. The ground truth value will be used.', 'warning')
             department = gt['department']
             sanity = True
 
         return department, sanity
+    
+
+    def __filter_doctor_schedule(self, doctor_information: dict, department: str) -> dict:
+        """
+        Filter doctor information by department.
+
+        Args:
+            doctor_information (dict): A dictionary containing information about doctors, 
+                                       including their department and schedule details.
+            department (str): The department name used to filter the doctors.
+
+        Returns:
+            dict: A dictionary containing only the doctors who belong to the specified 
+                  department, stored under the 'doctor' key.
+        """
+        filtered_doctor_information = {'doctor': {}}
+
+        for k, v in doctor_information.items():
+            if v['department'] == department:
+                filtered_doctor_information['doctor'][k] = v
+        
+        return filtered_doctor_information
+    
+
+    def __check_is_earlist(self, prediction: dict, doctor_information: dict, department: str, environment, preference_type: str) -> bool:
+        """
+        Check if the predicted schedule is the earliest possible option.
+
+        Args:
+            prediction (dict): Predicted schedule information including doctor, start time, end time, and date.
+            doctor_information (dict): Dictionary containing doctors’ schedules and availability.
+            department (str): Department name used to filter relevant doctors.
+            environment (Environment): Environment object containing current time and UTC offset.
+            preference_type (str): Scheduling preference type, e.g., 'doctor' (specific doctor) or 'department'.
+
+        Returns:
+            bool: True if the predicted schedule is the earliest available, False otherwise.
+        """
+        fixed_schedules = self.__filter_doctor_schedule(doctor_information, department)['doctor']
+        pred_doctor_name = list(prediction['schedule'].keys())[0]
+        pred_start = prediction['schedule'][pred_doctor_name]['start']
+        pred_end = prediction['schedule'][pred_doctor_name]['end']
+        pred_date = prediction['schedule'][pred_doctor_name]['date']
+        current_time = environment.current_time
+        utc_offset = environment._utc_offset
+
+        # Time segments
+        prediction_schedule_segments = convert_time_to_segment(self._START_HOUR,
+                                                               self._END_HOUR,
+                                                               self._TIME_UNIT,
+                                                               [pred_start, pred_end])
+        
+        for k, v in fixed_schedules.items():
+            if preference_type == 'doctor' and k != pred_doctor_name:
+                continue
+            
+            fixed_schedule = v['schedule']
+            for date, schedule in fixed_schedule.items():
+                # date > pred_date case
+                if compare_iso_time(date, pred_date):
+                    continue
+
+                fixed_schedule_segments = sum([convert_time_to_segment(self._START_HOUR, 
+                                                                       self._END_HOUR, 
+                                                                       self._TIME_UNIT, 
+                                                                       fs) for fs in schedule], [])
+                if date == pred_date:                
+                    free_time = [s for s in range(prediction_schedule_segments[0]) if s not in fixed_schedule_segments]
+                # date < pred_date case
+                else:
+                    all_time_segments = convert_time_to_segment(self._START_HOUR, self._END_HOUR, self._TIME_UNIT)
+                    free_time = [s for s in range(len(all_time_segments)) if s not in fixed_schedule_segments]
+
+                if len(free_time):
+                    free_max_st, _ = convert_segment_to_time(self._START_HOUR, self._END_HOUR, self._TIME_UNIT, [free_time[-1]])
+                    free_max_st_iso = get_iso_time(free_max_st, date, utc_offset=utc_offset)
+
+                    if compare_iso_time(free_max_st_iso, current_time):
+                        return False
+        return True
     
 
     def _sanity_check(self,
@@ -337,9 +570,9 @@ class AssignSchedule(Task):
         """
         ############################ Check the prediciton format #############################
         if not isinstance(prediction, dict):
-            return False, self.status_codes['format'], prediction, doctor_information    # Could not be parsed as a dictionary
+            return False, STATUS_CODES['format'], prediction, doctor_information    # Could not be parsed as a dictionary
         elif len(prediction['schedule']) > 1:
-            return False, self.status_codes['conflict']['physician'], prediction, doctor_information    # Allocated more than one doctor; cannot determine target
+            return False, STATUS_CODES['conflict']['physician'], prediction, doctor_information    # Allocated more than one doctor; cannot determine target
     
         ################## Check the predicted schedule type and validities ##################
         try:
@@ -355,9 +588,9 @@ class AssignSchedule(Task):
             assert patient_condition['department'] == doctor_information[doctor_name]['department'] \
                 and patient_condition['duration'] == round(end - start, 4)
         except KeyError:
-            return False, self.status_codes['format'], prediction, doctor_information    # Schedule allocation missing or doctor not found
+            return False, STATUS_CODES['format'], prediction, doctor_information    # Schedule allocation missing or doctor not found
         except AssertionError:
-            return False, self.status_codes['schedule'], prediction, doctor_information    # Invalid schedule times or department
+            return False, STATUS_CODES['schedule'], prediction, doctor_information    # Invalid schedule times or department
 
         ####################### Check the duplication of the schedules #######################
         prediction_schedule_segments = convert_time_to_segment(self._START_HOUR,
@@ -370,19 +603,22 @@ class AssignSchedule(Task):
                                                                fs) for fs in fixed_schedules[date]], [])
         
         if len(set(prediction_schedule_segments) & set(fixed_schedule_segments)):
-            return False, self.status_codes['conflict']['time'], prediction, doctor_information    # Overlaps with an existing schedule
+            return False, STATUS_CODES['conflict']['time'], prediction, doctor_information    # Overlaps with an existing schedule
         
         ####################### Check the patient's preferences  #######################
         if patient_condition['preference'] == 'doctor':
             if patient_condition.get('preferred_doctor') != doctor_name:
-                return False, self.status_codes['preference']['doctor'], prediction, doctor_information
-        elif patient_condition['preference'] == 'asap':
-            free_time = [s for s in range(prediction_schedule_segments[0]) if s not in fixed_schedule_segments]
-            if len(free_time):
-                free_max_st, _ = convert_segment_to_time(self._START_HOUR, self._END_HOUR, self._TIME_UNIT, [free_time[-1]])
-                free_max_st_iso = get_iso_time(free_max_st, date, utc_offset=environment._utc_offset)
-                if compare_iso_time(free_max_st_iso, environment.current_time):
-                    return False, self.status_codes['preference']['asap'], prediction, doctor_information
+                return False, STATUS_CODES['preference']['physician'], prediction, doctor_information
+        
+        is_earlist = self.__check_is_earlist(
+            prediction,
+            doctor_information,
+            patient_condition['department'],
+            environment,
+            patient_condition['preference']
+        )
+        if not is_earlist:
+            return False, STATUS_CODES['preference']['asap'], prediction, doctor_information
                 
         # Finally update schedule of the doctor
         doctor_information[doctor_name]['schedule'][date].append([start, end])    # In-place logic
@@ -396,7 +632,42 @@ class AssignSchedule(Task):
             'preference': patient_condition.get('preference'),
             'preferred_doctor': patient_condition.get('preferred_doctor'),
         }
-        return True, self.status_codes['correct'], prediction, doctor_information
+        return True, STATUS_CODES['correct'], prediction, doctor_information
+    
+
+    def feedback(self, prediction: str, error_code: str, doctor_information: dict, environment) -> str:
+        """
+        Generate supervisor feedback based on scheduling results, error codes, and doctor information.
+
+        Args:
+            prediction (str): The scheduling result or predicted schedule to be evaluated.
+            error_code (str): The code representing the type of scheduling error encountered.
+            doctor_information (dict): A dictionary containing information about the doctor(s) involved,
+                                       including availability and other relevant details.
+            environment (Environment): Hospital environment.
+
+        Returns:
+            str: The feedback generated by the supervisor client, providing guidance on how to
+                 correct the scheduling error.
+        """
+        user_prompt = self.sup_user_prompt_template.format(
+            START_HOUR=self._START_HOUR,
+            END_HOUR=self._END_HOUR,
+            TIME_UNIT=self._TIME_UNIT,
+            CURRENT_TIME=environment.current_time,
+            DAY=self._DAY,
+            DOCTOR=json.dumps(doctor_information, indent=2),
+            RESULTS=prediction,
+            ERROR_CODE=error_code,
+            REASON='\n'.join(SCHEDULING_ERROR_CAUSE[error_code])
+        )
+        feedback = self.supervisor_client(
+            user_prompt,
+            system_prompt=self.sup_system_prompt, 
+            using_multi_turn=False,
+            verbose=False
+        )
+        return feedback
             
 
     def __call__(self, data_pair: Tuple[dict, dict], agent_test_data: dict, agent_results: dict, environment) -> dict:
@@ -454,55 +725,71 @@ class AssignSchedule(Task):
         if not sanity:
             results['pred'].append({})
             results['status'].append(False)
-            results['status_code'].append(self.status_codes['preceding'])
+            results['status_code'].append(STATUS_CODES['preceding'])
             return results
         
         # LLM call and compare the validity of the LLM output
-        if self.ensure_output_format:
-            prediction = self.client(
-                user_prompt=self.user_prompt_template,
-                system_prompt=self.system_prompt,
-                **{
-                    'START_HOUR': self._START_HOUR,
-                    'END_HOUR': self._END_HOUR,
-                    'TIME_UNIT': self._TIME_UNIT,
-                    'CURRENT_TIME': environment.current_time,
-                    'DEPARTMENT': department,
-                    'DURATION': patient_condition.get('duration'),
-                    'PREFERENCE': self.preference_phrase[patient_condition.get('preference')],
-                    'PREFERRED_DOCTOR': patient_condition.get('preferred_doctor'),
-                    'DAY': self._DAY,
-                    'DOCTOR': json.dumps(doctor_information, indent=2),
-                    # 'PATIENT_SCHEDULES': json.dumps(environment.patient_schedules, indent=2)
-                }
-            )
+        feedback, prev_prediction = '', ''
+        feedback_cnt = 0
+        while 1:
+            filtered_doctor_information = self.__filter_doctor_schedule(doctor_information, department)
+            # filtered_doctor_information = doctor_information
+            if self.ensure_output_format:
+                prediction = self.task_client(
+                    user_prompt=self.task_user_prompt_template,
+                    system_prompt=self.task_system_prompt,
+                    **{
+                        'START_HOUR': self._START_HOUR,
+                        'END_HOUR': self._END_HOUR,
+                        'TIME_UNIT': self._TIME_UNIT,
+                        'CURRENT_TIME': environment.current_time,
+                        'DEPARTMENT': department,
+                        'DURATION': patient_condition.get('duration'),
+                        'PREFERENCE': self.preference_phrase[patient_condition.get('preference')],
+                        'PREFERRED_DOCTOR': patient_condition.get('preferred_doctor'),
+                        'DAY': self._DAY,
+                        'DOCTOR': json.dumps(filtered_doctor_information, indent=2),
+                        'PREV_ANSWER': prev_prediction,
+                        'FEEDBACK': feedback,
+                    }
+                )
 
-        else:
-            user_prompt = self.user_prompt_template.format(
-                START_HOUR=self._START_HOUR,
-                END_HOUR=self._END_HOUR,
-                TIME_UNIT=self._TIME_UNIT,
-                CURRENT_TIME=environment.current_time,
-                DEPARTMENT=department,
-                DURATION=patient_condition.get('duration'),
-                PREFERENCE=self.preference_phrase[patient_condition.get('preference')],
-                PREFERRED_DOCTOR=patient_condition.get('preferred_doctor'),
-                DAY=self._DAY,
-                DOCTOR=json.dumps(doctor_information, indent=2),
-                # PATIENT_SCHEDULES=json.dumps(environment.patient_schedules, indent=2)
+            else:
+                user_prompt = self.task_user_prompt_template.format(
+                    START_HOUR=self._START_HOUR,
+                    END_HOUR=self._END_HOUR,
+                    TIME_UNIT=self._TIME_UNIT,
+                    CURRENT_TIME=environment.current_time,
+                    DEPARTMENT=department,
+                    DURATION=patient_condition.get('duration'),
+                    PREFERENCE=self.preference_phrase[patient_condition.get('preference')],
+                    PREFERRED_DOCTOR=patient_condition.get('preferred_doctor'),
+                    DAY=self._DAY,
+                    DOCTOR=json.dumps(filtered_doctor_information, indent=2),
+                    PREV_ANSWER=prev_prediction,
+                    FEEDBACK= feedback,
+                )
+                prediction = self.task_client(
+                    user_prompt,
+                    system_prompt=self.task_system_prompt, 
+                    using_multi_turn=self.use_supervisor,
+                    verbose=False
+                )
+            prediction = AssignSchedule.postprocessing(prediction)    
+            status, status_code, prediction, doctor_information = self._sanity_check(
+                prediction, 
+                patient_condition,
+                doctor_information,
+                environment
             )
-            prediction = self.client(
-                user_prompt,
-                system_prompt=self.system_prompt, 
-                using_multi_turn=False
-            )
-        prediction = AssignSchedule.postprocessing(prediction)    
-        status, status_code, prediction, doctor_information = self._sanity_check(
-            prediction, 
-            patient_condition,
-            doctor_information,
-            environment
-        )
+            
+            if not status and self.use_supervisor and feedback_cnt < self.max_feedback_number:
+                prev_prediction += json.dumps(prediction) + f': {status_code}\n'
+                feedback = self.feedback(prediction, status_code, filtered_doctor_information, environment)
+                feedback_cnt += 1
+                continue
+            
+            break
 
         # POST/PUT to FHIR
         fhir_patient, fhir_appointment = None, None
@@ -625,18 +912,18 @@ class MakeFHIRResource(Task):
         Returns:
             Tuple[bool, str, Union[str, dict]]:
                 - A boolean indicating whether the prediction passed the sanity check.
-                - A status code string (e.g., 'correct', 'format') from `self.status_codes`.
+                - A status code string (e.g., 'correct', 'format') from `STATUS_CODES`.
                 - The original prediction, for logging or further processing.
         """
         # Check the prediciton format
         if not isinstance(prediction, dict):
-            return False, self.status_codes['format'], prediction    # Could not be parsed as a dictionary
+            return False, STATUS_CODES['format'], prediction    # Could not be parsed as a dictionary
         
         # Compare recursively
         if self.sanity_check_recursively(expected_prediction, prediction):
-            return True, self.status_codes['correct'], prediction
+            return True, STATUS_CODES['correct'], prediction
         else:
-            return False, self.status_codes['format'], prediction
+            return False, STATUS_CODES['format'], prediction
     
 
     def __get_necessary_information(self, schedule: dict) -> dict:
@@ -729,7 +1016,7 @@ class MakeFHIRResource(Task):
         if not sanity:
             results['pred'].append({})
             results['status'].append(False)
-            results['status_code'].append(self.status_codes['preceding'])
+            results['status_code'].append(STATUS_CODES['preceding'])
             return results
 
         # LLM call and compare the validity of the LLM output
@@ -845,7 +1132,7 @@ class MakeFHIRAPI(Task):
         Returns:
             Tuple[bool, str, Union[str, None]]:
                 - A boolean indicating whether the prediction passed the sanity check.
-                - A status code string (e.g., 'correct', 'format') from `self.status_codes`.
+                - A status code string (e.g., 'correct', 'format') from `STATUS_CODES`.
                 - The original prediction, for logging or further processing.
         """
         def check_curl(curl_command: str) -> bool:
@@ -871,19 +1158,19 @@ class MakeFHIRAPI(Task):
         
         # Check the prediciton format
         if not isinstance(prediction, str):
-            return False, self.status_codes['format'], prediction    # Could not be parsed as a dictionary
+            return False, STATUS_CODES['format'], prediction    # Could not be parsed as a dictionary
 
         # Check the sanity of the generated command
         if not check_curl(prediction):
-            return False, self.status_codes['curl']['http'], prediction
+            return False, STATUS_CODES['curl']['http'], prediction
         if not extract_url(prediction) == extract_url(expected_prediction):
-            return False, self.status_codes['curl']['url'], prediction
+            return False, STATUS_CODES['curl']['url'], prediction
         if not extract_headers(prediction) == extract_headers(expected_prediction):
-            return False, self.status_codes['curl']['header'], prediction
+            return False, STATUS_CODES['curl']['header'], prediction
         if not self.sanity_check_recursively(extract_payload(prediction), extract_payload(expected_prediction)):
-            return False, self.status_codes['curl']['payload'], prediction
+            return False, STATUS_CODES['curl']['payload'], prediction
         
-        return True, self.status_codes['correct'], prediction
+        return True, STATUS_CODES['correct'], prediction
     
 
     def __get_api(self, resource: dict) -> str:
@@ -941,7 +1228,7 @@ class MakeFHIRAPI(Task):
         if not sanity:
             results['pred'].append('')
             results['status'].append(False)
-            results['status_code'].append(self.status_codes['preceding'])
+            results['status_code'].append(STATUS_CODES['preceding'])
             return results
 
         # LLM call and compare the validity of the LLM output
