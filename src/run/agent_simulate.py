@@ -79,7 +79,7 @@ def main(args):
             if args.skip_saved_file and os.path.exists(save_path):
                 continue
 
-            if args.continuing:
+            if args.continuing and os.path.exists(save_path):
                 agent_results = json_load(save_path)
                 key = list(agent_results.keys())[0]
                 done_length = len(agent_results[key]['gt'])
