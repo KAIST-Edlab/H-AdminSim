@@ -128,22 +128,25 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
 
     # Prepare several pre-required data
     doctor_information = dict()
+    practitioner_ref_to_role = dict()
     practitioner_ref_to_schedules = dict()
     practitioner_ref_to_name = {
         f"Practitioner/{practitioner['resource']['id']}": \
             f"{practitioner['resource']['name'][0]['prefix'][0]} {practitioner['resource']['name'][0]['given'][0]} {practitioner['resource']['name'][0]['family']}" \
                 for practitioner in practitioners
     }
-    practitioner_ref_to_role = {
-        practitioner_role['resource']['practitioner']['reference']: \
-            {
-                'department': practitioner_role['resource']['specialty'][0]['text'],
-                'specialty': {
-                    'name': practitioner_role['resource']['specialty'][0]['coding'][0]['display'],
-                    'code': practitioner_role['resource']['specialty'][0]['coding'][0]['code']
-                }
-            } for practitioner_role in practitioner_roles
-    }
+    for practitioner_role in practitioner_roles:
+        attributes = {attr['text']: attr['coding'][0]['display'] for attr in practitioner_role['resource']['characteristic']}
+        practitioner_ref_to_role[practitioner_role['resource']['practitioner']['reference']] = {
+            'department': practitioner_role['resource']['specialty'][0]['text'],
+            'specialty': {
+                'name': practitioner_role['resource']['specialty'][0]['coding'][0]['display'],
+                'code': practitioner_role['resource']['specialty'][0]['coding'][0]['code']
+            },
+            'capacity_per_hour': int(attributes['capacity_per_hour']),
+            'capacity': int(attributes['capacity']),
+            'workload': float(attributes['workload'])
+        }
     schedule_ref_to_practioner_ref = {
         f"Schedule/{schedule['resource']['id']}": schedule['resource']['actor'][0]['reference'] for schedule in schedules
     }
@@ -184,6 +187,9 @@ def convert_fhir_resources_to_doctor_info(practitioners: list[dict],
             'specialty': practitioner_ref_to_role[ref]['specialty'],
             'schedule': __sort_schedule(practitioner_ref_to_schedules.get(ref, [])),
             'schedule': {k: sorted(v) for k, v in dict(sorted(practitioner_ref_to_schedules.get(ref, []).items())).items()},
+            'capacity_per_hour': practitioner_ref_to_role[ref]['capacity_per_hour'],
+            'capacity': practitioner_ref_to_role[ref]['capacity'],
+            'workload': practitioner_ref_to_role[ref]['workload'],
             'gender': resource['gender'],
             'telecom': resource['telecom'],
             'birthDate': resource['birthDate']

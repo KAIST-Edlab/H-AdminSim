@@ -128,6 +128,29 @@ class DataConverter:
                         'text': doctor_values['department']
                     }
                 ],
+                'characteristic': [
+                    {
+                        'coding': [{
+                            'code': 'capacity_per_hour',
+                            'display': str(doctor_values['capacity_per_hour'])
+                        }],
+                        'text': 'capacity_per_hour'
+                    },
+                    {
+                        'coding': [{
+                            'code': 'capacity',
+                            'display': str(doctor_values['capacity'])
+                        }],
+                        'text': 'capacity'
+                    },
+                    {
+                        'coding': [{
+                            'code': 'workload',
+                            'display': str(doctor_values['workload'])
+                        }],
+                        'text': 'workload'
+                    }
+                ],
                 'practitioner': {'reference': f'Practitioner/{practitioner_id}'}
             }
             practitionerroles.append(practitionerrole_obj)
