@@ -71,6 +71,7 @@ class ScheduleAssigner:
 
     def appointment_segment_assign(self,
                                    p: float,
+                                   min_chunk_size: int,
                                    max_chunk_size: int,
                                    segments: Optional[list[int]] = None) -> list[list[int]]:
         """
@@ -78,6 +79,7 @@ class ScheduleAssigner:
 
         Args:
             p (float): Proportion of remaining segments to sample and assign.
+            min_chunk_size (int): The minimum time segment size for each appointment.
             max_chunk_size (int): The maximum time segment size for each appointment.
             segments (Optional[list[int]], optional): Specific segments. Defaults to None.
 
@@ -85,28 +87,27 @@ class ScheduleAssigner:
             list[list[int]]: Newly assigned segments from the remaining pool, grouped consecutively.
         """
         segments = self.segments if segments == None else segments
-        segment_n = round(len(segments) * p)
+        avg_chunk_size = (min_chunk_size + max_chunk_size) / 2
+        segment_n = int(len(segments) * p // avg_chunk_size)
 
         if segment_n > 0:
-            chosen = random.sample(segments, segment_n)
-            chosen.sort()
+            random.shuffle(segments)
+            chosen = []
+            used = set()
 
-            # First, group into consecutive blocks
-            consecutive_blocks = group_consecutive_segments(chosen)
+            for s in segments:
+                chunk_size = random.randint(min_chunk_size, max_chunk_size)
+                trip = set(range(s, s + chunk_size))
 
-            # Second, split each consecutive block into random-sized chunks
-            appointments = []
-            for block in consecutive_blocks:
-                i = 0
-                while i < len(block):
-                    chunk_limit = min(max_chunk_size, len(block) - i)
-                    chunk_size = random.randint(1, chunk_limit)
-                    appointments.append(block[i:i + chunk_size])
-                    i += chunk_size
+                if used.isdisjoint(trip):
+                    chosen.append((s, chunk_size))
+                    used |= trip
+                    if len(chosen) == segment_n:
+                        break
 
-            return appointments
+            return [list(range(start, start + size)) for start, size in sorted(chosen)]
         return []
-        
+    
 
     def __call__(self,
                  p: float,

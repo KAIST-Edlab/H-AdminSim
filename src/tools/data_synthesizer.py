@@ -162,6 +162,7 @@ class DataSynthesizer:
                     }],
                     'birthDate': generate_random_date()
                 }
+                duration = int(1 / capacity_per_hour / interval_hour)
 
                 # Generate doctor schedules and apponitments based on the pre-defined days
                 for date in dates:
@@ -190,7 +191,8 @@ class DataSynthesizer:
                         ),
                         True,
                         patient_segments,
-                        max_chunk_size=1
+                        max_chunk_size=duration,
+                        max_chunk_size=duration
                     )
                     patients = DataSynthesizer.name_list_generator(len(appointments))
                     for patient, appointment in zip(patients, appointments):
