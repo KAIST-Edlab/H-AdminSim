@@ -191,7 +191,7 @@ class DataSynthesizer:
                         ),
                         True,
                         patient_segments,
-                        max_chunk_size=duration,
+                        min_chunk_size=duration,
                         max_chunk_size=duration
                     )
                     patients = DataSynthesizer.name_list_generator(len(appointments))
