@@ -29,7 +29,7 @@ langchain-google-genai = "2.1.8"
 openai = ">=1.87.0,<=1.90.0"
 vllm = "^0.10.0"
 beautifulsoup4 = "4.13.5"
-patientsim = "^0.1.6"
+patientsim = "^0.1.7"
 
 
 [build-system]

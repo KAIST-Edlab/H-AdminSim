@@ -19,6 +19,7 @@ __pycache__/
 logs/
 junk/
 json*/
+src/crawling
 
 # Data and configuration folders
 data/
