@@ -46,7 +46,7 @@
                         "Kidney Transplantation"
                     ]
                 },
-                "hematology oncology": {
+                "hematology/oncology": {
                     "code": "IMHEM",
                     "field": [
                         "Leukemia and Lymphoma",
