@@ -190,7 +190,7 @@ class OutpatientIntake(Task):
             else:
                 text_dict = text
             
-            assert len(text_dict) == 4 and all(k in text_dict for k in ['name', 'birth_date', 'gender', 'department'])   # Basic sanity check
+            assert len(text_dict) == 6 and all(k in text_dict for k in ['name', 'gender', 'phone_number', 'personal_id', 'address', 'department'])   # Basic sanity check
             return text_dict
         except:
             return str(text)
@@ -248,8 +248,7 @@ class OutpatientIntake(Task):
             return False, STATUS_CODES['format'], prediction    # Could not be parsed as a dictionary
         
         ############################ Incomplete simulation case #############################
-        # TODO: birth date가 simulation에 나왔는지 여부 판단하는 로직 추가 필요
-        if not all(v in conversations for k, v in gt['patient'].items() if k != 'birth_date'):
+        if not all(v in conversations for k, v in gt['patient'].items()):
             return False, STATUS_CODES['simulation'], prediction
         
         ############################ Check with the ground truth #############################
@@ -290,20 +289,31 @@ class OutpatientIntake(Task):
         results = self.get_result_dict()
         
         # Append a ground truth
-        name, gender, birth_date = gt['patient'], gt['gender'], gt['birthDate']
+        name, gender, birth_date, telecom, personal_id, address = \
+            gt['patient'], gt['gender'], gt['birthDate'], gt['telecom'][0]['value'], gt['identifier'][0]['value'], gt['address'][0]['text']
         gt_data = {
             'patient': {
-                'name': name, 
-                'birth_date': birth_date, 
-                'gender': gender
+                'name': name,
+                'gender': gender,
+                'phone_number': telecom,
+                'personal_id': personal_id,
+                'address': address,
             }, 
             'department': gt['department']
         }
         results['gt'].append(gt_data)
 
         # LLM call: Conversation and department decision
-        department_candidates = test_data['constraint']['symptom']['department']    # NOTE: Same as gt['department]
-        diagnosis = 'Unknown for now' if test_data['constraint']['symptom_level'] == 'simple' else test_data['constraint']['symptom']['disease']   # NOTE: `simple` or `with_history`
+        department_candidates = test_data['constraint']['symptom']['department']
+        if test_data['constraint']['symptom_level'] == 'simple':
+            medical_history = "None. This is the patient's first visit."
+            diagnosis = "Unknown for now, as this is the patient's first visit to the hospital."
+        elif test_data['constraint']['symptom_level'] == 'with_history':
+            medical_history = f"Diagnosed with {test_data['constraint']['symptom']['disease']} at a primary or secondary hospital."
+            diagnosis = test_data['constraint']['symptom']['disease']
+        else:
+            log("Patient's symptom level must be either 'simple' or 'with_history'.", "error")
+            
         patient_agent = PatientAgent(
             self.task_model,
             'outpatient',
@@ -312,8 +322,12 @@ class OutpatientIntake(Task):
             name=name,
             birth_date=birth_date,
             gender=gender,
+            telecom=telecom,
+            personal_id=personal_id,
+            address=address,
+            medical_history=medical_history,
             diagnosis=diagnosis,
-            chiefcomplaint=test_data['constraint']['symptom']['symptom'],
+            chief_complaint=test_data['constraint']['symptom']['symptom'],
             random_seed=42,
             temperature=0
         )

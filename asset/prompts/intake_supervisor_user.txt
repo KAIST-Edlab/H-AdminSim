@@ -1,10 +1,6 @@
 Below is a conversation between a patient during intake and a hospital administration office staff.  
-Please extract the patient's **Name, birth date, gender, and determined department**, and provide the output in the format shown in the examples below.
+Please extract the patient's **name, gender, phone number, personal ID, address, and determined department**, and provide the output in the format shown in the examples below.
 If the department assigned in the conversation is appropriate, extract it as is.
-
-For the birth date:
-    * Always extract the birth date in the format YYYY-MM-DD.
-    * If the exact birth date is not provided, return "none".
 
 For the department decision:
     * If the department assigned in the conversation is appropriate, extract it as is.
@@ -23,13 +19,13 @@ Current department options in the hospital:
 Answer format examples:
 Example 1:
 ```json
-{{"name": "Chuck Adamcik", "birth_date": "1976-03-29", "gender": "male", "department": "rheumatory"}}
+{{"name": "Chuck Adamcik", "gender": "male", "phone_number": "+82707813973", "personal_id": "740925-6104539", "address": "93, Bomok 3-gil, Inje-gun, Gimpo-si", "department": "rheumatory"}}
 ```
 Example 2:
 ```json
-{{"name": "Garth Sumners", "birth_date": "1982-11-12", "gender": "female", "department": "pulmonary"}}
+{{"name": "Garth Sumners", "gender": "female", "phone_number": "+5832802426", "personal_id": "856215-5992486", "address": "9, Jujung-ro 128beon-gil, Suyeong-gu, Yangsan-si", "department": "pulmonary"}}
 ```
 Example 3 (if the demographic information is unavailable):
 ```json
-{{"name": "none", "birth_date": "none", "gender": "none", "department": "infectious diseases"}}
+{{"name": "none", "gender": "none", "phone_number": "none", "personal_id": "none", "address": "none", "department": "infectious diseases"}}
 ```
