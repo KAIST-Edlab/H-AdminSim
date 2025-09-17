@@ -825,6 +825,10 @@ class AssignSchedule(Task):
                 doctor_information,
                 environment
             )
+
+            if status:
+                prediction['last_updated_time'] = environment.current_time
+
             if verbose: 
                 log(f'Pred  : {prediction}')
                 log(f'Status: {status_code}')
