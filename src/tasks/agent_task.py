@@ -327,7 +327,7 @@ class OutpatientIntake(Task):
             address=address,
             medical_history=medical_history,
             diagnosis=diagnosis,
-            chief_complaint=test_data['constraint']['symptom']['symptom'],
+            chiefcomplaint=test_data['constraint']['symptom']['symptom'],
             random_seed=42,
             temperature=0
         )
