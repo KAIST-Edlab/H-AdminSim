@@ -46,7 +46,11 @@ class AgentDataBuilder:
             department = patient_values['department']
             gender, telecom, birth_date, identifier, address = \
                 patient_values['gender'], patient_values['telecom'], patient_values['birthDate'], patient_values['identifier'], patient_values['address']
-            disease = generate_random_symptom(department, symptom_file_path)
+            disease = generate_random_symptom(
+                department,
+                symptom_file_path, 
+                patient_values['preference'] == 'doctor'
+            )
             gt_department = disease['department'] if isinstance(disease, dict) else [department]
             gt = {
                 'patient': patient,

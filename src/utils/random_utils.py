@@ -135,6 +135,7 @@ def generate_random_prob(has_schedule_prob: float, coverage_min: float, coverage
 
 def generate_random_symptom(department: str, 
                             symptom_file_path: str = './asset/departments/symptom.json',
+                            ensure_unique_department: bool = True,
                             min_n: int = 2,
                             max_n: int = 4,
                             verbose: bool = True) -> Union[dict, str]:
@@ -144,6 +145,7 @@ def generate_random_symptom(department: str,
     Args:
         department (str, optional): A name of hospital department.
         symptom_file_path (str, optional): A path of pre-defined symptom data. Defaults to './asset/departments/symptom.json'.
+        ensure_unique_department (bool): Ensure that the disease can only be treated in a single medical specialty.
         min_n (int, optional): Minimum number of symptoms to select. Defaults to 2.
         max_n (int, optional): Maximum number of symptoms to select. Defaults to 4.
         verbose (bool, optional): If True, print a warning message when no matching department is found. Defaults to True.
@@ -157,7 +159,16 @@ def generate_random_symptom(department: str,
         registry.SYMPTOM_MAP = json_load(symptom_file_path)
     
     if department in registry.SYMPTOM_MAP:
-        disease_info = random.choice(registry.SYMPTOM_MAP[department])
+        if ensure_unique_department:
+            unique_diseases = [dis for dis in registry.SYMPTOM_MAP[department] if len(dis[list(dis.keys())[0]]['department']) == 1]
+            if not len(unique_diseases):
+                log(f"In the specified {department}, there is no disease that can be treated within that specialty.\
+                      As a result, if the department prediction later turns out to be a different specialty,\
+                      it may not align with the patient’s preferred primary physician’s department, which can cause errors in the scheduling simulation.", 'warning')
+            disease_list = unique_diseases if len(unique_diseases) else registry.SYMPTOM_MAP[department]
+            disease_info = random.choice(disease_list)
+        else:
+            disease_info = random.choice(registry.SYMPTOM_MAP[department])
         disease = list(disease_info.keys())[0]
         disease_info = {'disease': disease, **disease_info[disease]}
         symptom_n = min(random.randint(min_n, max_n), len(disease_info['symptom']))
