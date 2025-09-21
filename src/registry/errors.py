@@ -22,32 +22,32 @@ STATUS_CODES = {
 
 SCHEDULING_ERROR_CAUSE = {
     'incorrect format': [
-        '* There is an issue with the output format. Please perform scheduling in the correct format.'
+        '* There is an issue with the output format. Please perform scheduling in the correct format.',
     ],
     'physician conflict': [
-        '* More than one doctor has been assigned. A schedule must be made with exactly one doctor.'
+        '* More than one doctor has been assigned. A schedule must be made with exactly one doctor.',
     ],
     'time conflict': [
-        "* The scheduling result overlaps with the doctor's existing schedule."
+        "* The scheduling result overlaps with the doctor's existing schedule.",
     ],
     'mismatched physician': [
-        '* A different doctor was assigned even though the patient requested a specific doctor.'
+        '* A different doctor was assigned even though the patient requested a specific doctor.',
     ],
     'not earlist schedule': [
         '* The patient wants the earliest possible appointment in the department, but the assigned time is not the earliest available based on the current time.',
-        '* When scheduling, it is possible to assign an earlier date or time.'
-        "* The previous patient's schedule may have been cancelled. Therefore, it is necessary to carefully compare the hospital's start time with the doctor's schedule to identify available time slots."
+        '* When scheduling, it is possible to assign an earlier date or time.',
+        "* The previous patient's schedule may have been cancelled. Therefore, it is necessary to carefully compare the hospital's start time with the doctor's schedule to identify available time slots.",
     ],
     'invalid schedule': [
         "* The scheduling result may fall outside the hospital's operating hours.",
         "* The scheduling result may be in the past relative to the current time.",
         "* The scheduling result may not be a valid date.",
-        "* The assigned doctor may not belong to the department the patient should visit."
+        "* The assigned doctor may not belong to the department the patient should visit.",
     ],
     'wrong duration': [
         "* The patient's schedule does not match the consultation duration required by the doctor.",
     ],
     'workload balancing': [
-        "* You must schedule the appointment with a doctor who has a lower workload than the current doctor."
+        "* You must schedule the appointment with a doctor who has a lower workload than the current doctor.",
     ]
 }
