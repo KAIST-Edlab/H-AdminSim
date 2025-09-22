@@ -179,8 +179,8 @@ class HospitalEnvironment:
             verbose (bool, optional): Whether logging the each result or not. Defaults to False.
         """
         if idx >= 0:
-            for turn, (_, schedule) in enumerate(self.waiting_list):
-                if schedule == self.patient_schedules[idx]:
+            for turn, (i, _) in enumerate(self.waiting_list):
+                if i == idx:
                     self.pop_waiting_list(turn, verbose)
                     break
             self.patient_schedules[idx]['status'] = 'cancelled'

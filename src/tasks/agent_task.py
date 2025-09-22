@@ -761,13 +761,14 @@ class AssignSchedule(Task):
             environment.add_waiting_list(idx, verbose)
 
 
-    def feedback(self, prediction: str, error_code: str, doctor_information: dict, environment) -> str:
+    def feedback(self, prediction: str, error_code: str, prev_prediction: str, doctor_information: dict, environment) -> str:
         """
         Generate supervisor feedback based on scheduling results, error codes, and doctor information.
 
         Args:
             prediction (str): The scheduling result or predicted schedule to be evaluated.
             error_code (str): The code representing the type of scheduling error encountered.
+            prev_prediction (str): All previous wrong answers and their each simple error code.
             doctor_information (dict): A dictionary containing information about the doctor(s) involved,
                                        including availability and other relevant details.
             environment (Environment): Hospital environment.
@@ -783,6 +784,7 @@ class AssignSchedule(Task):
             CURRENT_TIME=environment.current_time,
             DAY=self._DAY,
             DOCTOR=json.dumps(doctor_information, indent=2),
+            PREV_ANSWER=prev_prediction,
             RESULTS=prediction,
             ERROR_CODE=error_code,
             REASON='\n'.join(SCHEDULING_ERROR_CAUSE[error_code])
@@ -875,7 +877,7 @@ class AssignSchedule(Task):
             
             if not status and self.use_supervisor and feedback_cnt < self.max_feedback_number:
                 prev_prediction += json.dumps(prediction) + f': {status_code}\n'
-                feedback = self.feedback(prediction, status_code, filtered_doctor_information, environment)
+                feedback = self.feedback(prediction, status_code, prev_prediction, filtered_doctor_information, environment)
                 feedback_cnt += 1
                 continue
             
