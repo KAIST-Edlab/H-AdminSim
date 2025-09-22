@@ -8,15 +8,15 @@ For the department decision:
     * If the department is not mentioned at all in the conversation, you must determine the most appropriate one based on the conversation.
 
 
-Here is the conversation:
+## Here is the conversation:
 {CONVERSATION}
 
 
-Current department options in the hospital:
+## Current department options in the hospital:
 {DEPARTMENTS}
 
 
-Answer format examples:
+## Answer format examples:
 Example 1:
 ```json
 {{"name": "Chuck Adamcik", "gender": "male", "phone_number": "+82707813973", "personal_id": "740925-6104539", "address": "93, Bomok 3-gil, Inje-gun, Gimpo-si", "department": "rheumatory"}}

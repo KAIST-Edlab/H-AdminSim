@@ -157,11 +157,13 @@ class HospitalEnvironment:
                                     about doctors, patients, and other hospital resources.
             agent_results (dict): Previously saved results from the agent's simulation.
         """
+        # TODO: waiting list resume
         if 'schedule' in agent_results:
             for status, pred in zip(agent_results['schedule']['status'], agent_results['schedule']['pred']):
                 if status:
                     self.patient_schedules.append(pred)
-                    self.booking_num[pred['attending_physician']] += 1
+                    if not pred['status'] == 'cancelled':
+                        self.booking_num[pred['attending_physician']] += 1
                     self.current_time = pred['last_updated_time']
             
             self.update_current_time()
@@ -184,6 +186,7 @@ class HospitalEnvironment:
                     self.pop_waiting_list(turn, verbose)
                     break
             self.patient_schedules[idx]['status'] = 'cancelled'
+            self.booking_num[self.patient_schedules[idx]['attending_physician']] -= 1
             if verbose:
                 log(f'{colorstr("CANCELED")}: {self.patient_schedules[idx]} schedule is canceled.')
     

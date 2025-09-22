@@ -3,33 +3,34 @@ Based on the patient information, assign the patient to a suitable doctor and sc
 Respond in JSON format only, as shown in the example below.
 
 
-Hospital time information:
+## Hospital time information:
 * Start_hour: {START_HOUR}
 * End_hour: {END_HOUR}
 * Time unit: {TIME_UNIT}
 * Current time: {CURRENT_TIME}
 
 
-Patient information:
+## Patient information:
 * Department: {DEPARTMENT}
 * Patient duration: You must schedule according to each doctor’s outpatient consultation duration. (Unit: hours)
 * Preference: {PREFERENCE}
 * Preferred doctor: {PREFERRED_DOCTOR}
+* Rescheduling request: {RESCHEDULING_FLAG}
 
 
-Example of how to read schedules:
+## Example of how to read schedules:
 * [9.0, 10.25]: Indicates an occupied (booked) schedule from 9:00 to 10:15.
 * [10.5, 17.0]: Indicates an occupied (booked) schedule from 10:30 to 17:00.
 
 
-Doctor information and their {DAY}-day schedules:
-NOTE: The schedule field lists the time intervals that are already occupied (booked) for each date. Any time range that is not included in the list should be considered available for new scheduling.
+## Doctor information and their {DAY}-day schedules:
+NOTE: The schedule field lists the time intervals that are already occupied (booked) for each date. Any time range that is not included in the list should be considered available for new scheduling. Time slots **must** be assigned only for dates that exist in the schedule.
 ```json
 {DOCTOR}
 ```
 
 
-Patient scheduling instructions:
+## Patient scheduling instructions:
 1. If the patient has a preferred doctor, the appointment must be scheduled with that doctor.
 2. If the patient wants the earliest possible appointment, compare the available times of the doctors in the patient’s department and schedule the appointment with the doctor who can see the patient the soonest.
 3. Appointment times must be later than the "current time" (ISO format) provided in the "Hospital time information" above.
@@ -37,9 +38,10 @@ Patient scheduling instructions:
 5. Once the doctor for the appointment is determined, you must schedule according to that doctor’s outpatient consultation duration. For example, one doctor’s consultation time may be 0.25 hours, while another’s may be 0.5 hours.
 6. Output the patient's scheduled appointment as the value of the 'schedule' key in the JSON format shown below.
 7. Schedule appointments between the patient and the doctor while satisfying the above conditions, following the basic principle of booking sequentially from the earliest available date and time.
+8. If a patient requests rescheduling due to a previous patient’s appointment cancellation, you **must** find and assign the earliest available date and time slot. Since there may be gaps in the schedule, carefully check the doctor’s schedule when assigning.
 
 
-Answer format examples:
+## Answer format examples:
 Example 1:
 ```json
 {{"schedule": {{"Dr. Wayne Otero": {{"date": "2025-06-13", "start": 11.5, "end": 12}}}}}}
@@ -50,8 +52,9 @@ Example 2:
 ```
 
 
-Your previous wrong answers:
+## History of your incorrect responses and errors:
 {PREV_ANSWER}
+NOTE: You **must** never respond with the incorrect result(s) above again.
 
-Feedback on your latest answer:
+## Feedback on your most recent incorrect answer in the history:
 {FEEDBACK}
