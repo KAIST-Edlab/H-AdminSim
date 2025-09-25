@@ -157,7 +157,6 @@ class HospitalEnvironment:
                                     about doctors, patients, and other hospital resources.
             agent_results (dict): Previously saved results from the agent's simulation.
         """
-        # TODO: waiting list resume
         if 'schedule' in agent_results:
             for status, pred in zip(agent_results['schedule']['status'], agent_results['schedule']['pred']):
                 if status:
@@ -166,6 +165,7 @@ class HospitalEnvironment:
                         self.booking_num[pred['attending_physician']] += 1
                     self.current_time = pred['last_updated_time']
             
+            self.waiting_list = sorted([(i, s) for i, s in enumerate(self.patient_schedules) if s['waiting_order'] >= 0], key=lambda x: x[1]['waiting_order'])
             self.update_current_time()
             self.update_patient_status()
     
@@ -202,6 +202,7 @@ class HospitalEnvironment:
         if idx >= 0:
             requested_schedule = self.patient_schedules[idx]
             if all(requested_schedule != s[1] for s in self.waiting_list):
+                requested_schedule['waiting_order'] = len(self.waiting_list)
                 self.waiting_list.append((idx, requested_schedule))
                 if verbose:
                     log(f'{colorstr("WAITING LIST")}: {requested_schedule} schedule is appended to the waiting list.')
@@ -222,8 +223,12 @@ class HospitalEnvironment:
             idx = sorted(idx, reverse=True)
             for _id in idx:
                 schedule = self.waiting_list.pop(_id)
+                schedule[1]['waiting_order'] = -1
                 if verbose:
                     log(f'{colorstr("WAITING LIST")}: {schedule[1]} schedule is popped from the waiting list.')
+        
+            for i, (_, schedule) in enumerate(self.waiting_list):
+                schedule['waiting_order'] = i
 
 
     def update_fhir(self, fhir_resources: dict):
@@ -266,7 +271,10 @@ class HospitalEnvironment:
         """
         Update the status of each patient based on the current hospital time.
         """
-        for schedule in self.patient_schedules:            
+        for schedule in self.patient_schedules:
+            if schedule.get('waiting_order', -1) < 0:
+                schedule['waiting_order'] = -1
+
             if schedule.get('status') == 'cancelled':
                 continue
 
