@@ -124,7 +124,8 @@ class HospitalEnvironment:
                     x for x in self.fhir_manager.read_all('Appointment', verbose=False)
                     if hospital_id in x['resource']['id']
                 ]
-                assert len(self.fhir_appointment) == len(self.patient_schedules), f"Mismatch in appointment count: expected {len(self.patient_schedules)}, got {len(self.fhir_appointment)}"
+                valid_len = len(list(filter(lambda x: x['status'] != 'cancelled', self.patient_schedules)))
+                assert len(self.fhir_appointment) == valid_len, f"Mismatch in appointment count: expected {valid_len}, got {len(self.fhir_appointment)}"
                 break
             except AssertionError as e:
                 if retry_count >= self.max_retries:
