@@ -121,7 +121,7 @@ def main(args):
                     result = task((gt, test_data), agent_test_data, agent_results, environment, args.verbose)
                     
                     # Append a single result 
-                    agent_results.setdefault(task.name, {'gt': [], 'pred': [], 'status': [], 'status_code': []})
+                    agent_results.setdefault(task.name, {'gt': [], 'pred': [], 'status': [], 'status_code': [], 'trial': []})
                     for k in result:
                         agent_results[task.name][k] += result[k]
 
