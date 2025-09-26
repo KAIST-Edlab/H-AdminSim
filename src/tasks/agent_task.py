@@ -208,7 +208,7 @@ class OutpatientIntake(Task):
             return False, STATUS_CODES['format'], prediction    # Could not be parsed as a dictionary
         
         ############################ Incomplete simulation case #############################
-        if not all(v in conversations for k, v in gt['patient'].items()):
+        if not all(v.lower() in conversations.lower() for k, v in gt['patient'].items()):
             return False, STATUS_CODES['simulation'], prediction
         
         ############################ Check with the ground truth #############################
@@ -290,13 +290,13 @@ class OutpatientIntake(Task):
             diagnosis=diagnosis,
             chiefcomplaint=test_data['constraint']['symptom']['symptom'],
             random_seed=42,
-            temperature=0
+            temperature=0 if not 'gpt-5' in self.task_model.lower() else 1
         )
         admin_staff_agent = AdminStaffAgent(
             self.task_model,
             departments,
             random_seed=42,
-            temperature=0
+            temperature=0 if not 'gpt-5' in self.task_model.lower() else 1
         )
         environment = OPSimulation(patient_agent, admin_staff_agent, max_inferences=self.max_inferences)
         dialogs = environment.simulate(verbose=False)['dialog_history']
