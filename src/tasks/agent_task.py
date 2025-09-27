@@ -1,9 +1,11 @@
 import json
+import time
 import random
 from copy import deepcopy
 from typing import Tuple, Union, Optional
 from patientsim.environment import OPSimulation
 from patientsim import AdminStaffAgent, PatientAgent
+from google.genai.errors import ServerError
 
 from tools import (
     GeminiClient,
@@ -21,6 +23,7 @@ from utils.common_utils import (
     group_consecutive_segments,
     convert_segment_to_time,
     convert_time_to_segment,
+    exponential_backoff,
     compare_iso_time,
     get_iso_time,
 )
@@ -87,6 +90,7 @@ class OutpatientIntake(Task):
     def __init__(self, config):
         # Initialize variables
         self.name = 'intake'
+        self.max_retries = 5
         self.supervisor_model = config.supervisor_model
         self.task_model = config.task_model
         self._sup_system_prompt_path = config.outpatient_intake.supervisor_system_prompt
@@ -299,7 +303,21 @@ class OutpatientIntake(Task):
             temperature=0 if not 'gpt-5' in self.task_model.lower() else 1
         )
         environment = OPSimulation(patient_agent, admin_staff_agent, max_inferences=self.max_inferences)
-        dialogs = environment.simulate(verbose=False)['dialog_history']
+        retry_count = 0
+        while 1:
+            try:
+                dialogs = environment.simulate(verbose=False)['dialog_history']
+                break
+            except ServerError as e:
+                if retry_count >= self.max_retries:
+                    log(f"\nMax retries reached. Last error: {e}", level='error')
+                    raise e
+                wait_time = exponential_backoff(retry_count)
+                log(f"[{retry_count + 1}/{self.max_retries}] {type(e).__name__}: {e}. Retrying in {wait_time:.1f} seconds...", level='warning')
+                time.sleep(wait_time)
+                retry_count += 1
+                continue
+        
         prediction_department = OutpatientIntake.postprocessing_department(dialogs[-1]['content'])
 
         # LLM call: Supervisor which should extract demographic information of the patient and evaluation the department decision result
