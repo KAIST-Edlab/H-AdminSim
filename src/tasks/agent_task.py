@@ -103,12 +103,16 @@ class OutpatientIntake(Task):
         self.user_prompt_template = txt_load(self._sup_user_prompt_path)
 
         # Initialize models
+        self.task_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.task_model.lower() else {}
         if 'gemini' in self.supervisor_model.lower():
             self.supervisor_client = GeminiLangChainClient(self.supervisor_model) if self.ensure_output_format else GeminiClient(self.supervisor_model)
+            self.sup_reasoning_kwargs = {}
         elif 'gpt' in self.supervisor_model.lower():
             self.supervisor_client = GPTLangChainClient(self.supervisor_model) if self.ensure_output_format else GPTClient(self.supervisor_model)
+            self.sup_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.supervisor_model.lower() else {}
         else:
             self.supervisor_client = VLLMClient(self.supervisor_model, config.vllm_url)
+            self.sup_reasoning_kwargs = {}
 
     
     @staticmethod
@@ -307,7 +311,7 @@ class OutpatientIntake(Task):
         retry_count = 0
         while 1:
             try:
-                dialogs = environment.simulate(verbose=False)['dialog_history']
+                dialogs = environment.simulate(verbose=False, **self.task_reasoning_kwargs)['dialog_history']
                 break
             except ServerError as e:
                 if retry_count >= self.max_retries:
@@ -341,7 +345,8 @@ class OutpatientIntake(Task):
                 user_prompt,
                 system_prompt=self.system_prompt, 
                 using_multi_turn=False,
-                verbose=False
+                verbose=False,
+                **self.sup_reasoning_kwargs
             )
         prediction_supervision = OutpatientIntake.postprocessing_information(prediction_supervision)
 
@@ -395,10 +400,13 @@ class AssignSchedule(Task):
         # Initialize task model
         if 'gemini' in self.task_model.lower():
             self.task_client = GeminiLangChainClient(self.task_model) if self.ensure_output_format else GeminiClient(self.task_model)
+            self.task_reasoning_kwargs = {}
         elif 'gpt' in self.task_model.lower():
             self.task_client = GPTLangChainClient(self.task_model) if self.ensure_output_format else GPTClient(self.task_model)
+            self.task_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.supervisor_model.lower() else {}
         else:
             self.task_client = VLLMClient(self.task_model, config.vllm_url)
+            self.task_reasoning_kwargs = {}
 
         # If you use supervisor model
         if self.use_supervisor:
@@ -411,10 +419,13 @@ class AssignSchedule(Task):
 
             if 'gemini' in self.supervisor_model.lower():
                 self.supervisor_client = GeminiClient(self.supervisor_model)
+                self.sup_reasoning_kwargs = {}
             elif 'gpt' in self.supervisor_model.lower():
                 self.supervisor_client = GPTClient(self.supervisor_model)
+                self.sup_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.supervisor_model.lower() else {}
             else:
                 self.supervisor_client = VLLMClient(self.supervisor_model, config.vllm_url)
+                self.sup_reasoning_kwargs = {}
         
     
     @staticmethod
@@ -871,7 +882,8 @@ class AssignSchedule(Task):
                     user_prompt,
                     system_prompt=self.sup_system_prompt, 
                     using_multi_turn=True,
-                    verbose=False
+                    verbose=False,
+                    **self.sup_reasoning_kwargs
                 )
                 break
             except ServerError as e:
@@ -965,7 +977,8 @@ class AssignSchedule(Task):
                             user_prompt,
                             system_prompt=self.task_system_prompt, 
                             using_multi_turn=self.use_supervisor,
-                            verbose=False
+                            verbose=False,
+                            **self.task_reasoning_kwargs
                         )
                         break
                     except ServerError as e:
