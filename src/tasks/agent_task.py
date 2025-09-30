@@ -373,6 +373,7 @@ class AssignSchedule(Task):
     def __init__(self, config):
         # Initialize variables
         self.name = 'schedule'
+        self.max_retries = 8
         self.use_supervisor = config.schedule_task.use_supervisor
         self.task_model = config.task_model
         self._task_system_prompt_path = config.schedule_task.task_system_prompt
@@ -431,11 +432,14 @@ class AssignSchedule(Task):
         try:
             if isinstance(text, str):
                 match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
-                if not match:
-                    return text
-                json_str = match.group(1)
-                text_dict = json.loads(json_str)
-                
+                if match:
+                    json_str = match.group(1)
+                    text_dict = json.loads(json_str)
+                else:
+                    try:
+                        text_dict = json.loads(text)
+                    except:
+                        return text
             else:
                 text_dict = text
             
@@ -858,12 +862,28 @@ class AssignSchedule(Task):
             ERROR_CODE=error_code,
             REASON='\n'.join(SCHEDULING_ERROR_CAUSE[error_code])
         )
-        feedback = self.supervisor_client(
-            user_prompt,
-            system_prompt=self.sup_system_prompt, 
-            using_multi_turn=True,
-            verbose=False
-        )
+
+        # Due to unstable gemini API
+        retry_count = 0
+        while 1:
+            try:
+                feedback = self.supervisor_client(
+                    user_prompt,
+                    system_prompt=self.sup_system_prompt, 
+                    using_multi_turn=True,
+                    verbose=False
+                )
+                break
+            except ServerError as e:
+                if retry_count >= self.max_retries:
+                    log(f"\nMax retries reached. Last error: {e}", level='error')
+                    raise e
+                wait_time = exponential_backoff(retry_count)
+                log(f"[{retry_count + 1}/{self.max_retries}] {type(e).__name__}: {e}. Retrying in {wait_time:.1f} seconds...", level='warning')
+                time.sleep(wait_time)
+                retry_count += 1
+                continue
+
         return feedback
     
 
@@ -936,12 +956,27 @@ class AssignSchedule(Task):
                     PREV_ANSWER=prev_prediction,
                     FEEDBACK= feedback,
                 )
-                prediction = self.task_client(
-                    user_prompt,
-                    system_prompt=self.task_system_prompt, 
-                    using_multi_turn=self.use_supervisor,
-                    verbose=False
-                )
+                
+                # Due to unstable gemini API
+                retry_count = 0
+                while 1:
+                    try:
+                        prediction = self.task_client(
+                            user_prompt,
+                            system_prompt=self.task_system_prompt, 
+                            using_multi_turn=self.use_supervisor,
+                            verbose=False
+                        )
+                        break
+                    except ServerError as e:
+                        if retry_count >= self.max_retries:
+                            log(f"\nMax retries reached. Last error: {e}", level='error')
+                            raise e
+                        wait_time = exponential_backoff(retry_count)
+                        log(f"[{retry_count + 1}/{self.max_retries}] {type(e).__name__}: {e}. Retrying in {wait_time:.1f} seconds...", level='warning')
+                        time.sleep(wait_time)
+                        retry_count += 1
+                        continue
             prediction = AssignSchedule.postprocessing(prediction)    
             status, status_code, prediction, doctor_information = self._sanity_check(
                 prediction, 
