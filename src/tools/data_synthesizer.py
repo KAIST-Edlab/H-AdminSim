@@ -2,6 +2,7 @@ import os
 import random
 from tqdm import tqdm
 from typing import Optional, Tuple
+from decimal import Decimal, getcontext
 
 import registry
 from tasks import ScheduleAssigner
@@ -31,6 +32,7 @@ class DataSynthesizer:
         self._data_save_dir = self._save_dir / 'data'
         yaml_save(self._save_dir / 'args.yaml', self.config)
         os.makedirs(self._data_save_dir, exist_ok=True)
+        getcontext().prec = 10
         
     
     def synthesize(self,
@@ -106,7 +108,7 @@ class DataSynthesizer:
                                    for _ in range(department_n)]
         doctor_n = sum(doctor_n_per_department)
         doctor_capacity_per_hour_list = [c for c in range(config.hospital_data.doctor_capacity_per_hour.min, config.hospital_data.doctor_capacity_per_hour.max + 1) \
-                                         if 1/c % interval_hour == 0]
+                                         if float(Decimal(str(1))/Decimal(str(c)) % Decimal(str(interval_hour))) == 0]
         hospital_time_segments = convert_time_to_segment(start_hour, end_hour, interval_hour)
         metadata = Information(
             hospital_name=hospital_name,
