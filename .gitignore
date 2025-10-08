@@ -20,6 +20,8 @@ logs/
 junk/
 json*/
 src/crawling
+src/plotting
+results/
 
 # Data and configuration folders
 data/
