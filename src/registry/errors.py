@@ -13,7 +13,7 @@ STATUS_CODES = {
     },
     'preference': {
         'physician': 'mismatched physician',
-        'asap': 'not earlist schedule',
+        'asap': 'not earliest schedule',
         'date': 'not valid date',
     },
     # 'workload': 'workload balancing',
@@ -34,7 +34,7 @@ SCHEDULING_ERROR_CAUSE = {
     'mismatched physician': [
         '* A different doctor was assigned even though the patient requested a specific doctor.',
     ],
-    'not earlist schedule': [
+    'not earliest schedule': [
         '* The patient wants the earliest possible appointment in the department, but the assigned time is not the earliest available based on the current time.',
         '* When scheduling, it is possible to assign an earlier date or time.',
         "* The previous patient's schedule may have been cancelled. Therefore, it is necessary to carefully compare the hospital's start time with the doctor's schedule to identify available time slots.",

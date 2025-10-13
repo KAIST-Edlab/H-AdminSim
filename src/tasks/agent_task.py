@@ -600,7 +600,7 @@ class AssignSchedule(Task):
         return filtered_doctor_information
     
 
-    def __check_is_earlist(self, 
+    def __check_is_earliest(self, 
                            prediction: dict, 
                            doctor_information: dict, 
                            department: str, 
@@ -757,7 +757,7 @@ class AssignSchedule(Task):
             if compare_iso_time(patient_condition.get('valid_from'), date):
                 return False, STATUS_CODES['preference']['date'], prediction, doctor_information
         
-        is_earlist = self.__check_is_earlist(
+        is_earliest = self.__check_is_earliest(
             prediction,
             doctor_information,
             patient_condition['department'],
@@ -765,7 +765,7 @@ class AssignSchedule(Task):
             patient_condition['preference'],
             valid_from=patient_condition['valid_from'] if patient_condition['preference'] == 'date' else None
         )
-        if not is_earlist:
+        if not is_earliest:
             return False, STATUS_CODES['preference']['asap'], prediction, doctor_information
         
         # ###################### Check the doctors' workload balance  #####################
@@ -854,7 +854,7 @@ class AssignSchedule(Task):
         statuses, status_codes, predictions, trials = list(), list(), list(), list()
         for turn, (idx, schedule) in enumerate(environment.waiting_list):
             if schedule['status'] == 'scheduled':
-                is_earlist = self.__check_is_earlist(
+                is_earliest = self.__check_is_earliest(
                     {
                         'schedule': {
                             schedule['attending_physician']: {
@@ -870,7 +870,7 @@ class AssignSchedule(Task):
                     schedule['preference'],
                     valid_from=schedule['valid_from'] if schedule['preference'] == 'date' else None
                 )
-                if not is_earlist:
+                if not is_earliest:
                     status, status_code, prediction, doctor_information, trial = self.scheduling(
                         {
                             'patient': schedule['patient'],
