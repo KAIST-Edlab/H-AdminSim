@@ -31,3 +31,4 @@ output/*
 fhir_data/*
 synthetic_data*/*
 adminsim-arena/
+adminsim-human-eval/
