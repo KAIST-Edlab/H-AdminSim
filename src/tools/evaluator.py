@@ -8,9 +8,11 @@ from utils.image_preprocess_utils import draw_fail_donut_subplots
 
 
 class Evaluator:
-    def __init__(self, path):
+    def __init__(self, path, human_eval=False):
         self.path = path
         self.files = get_files(self.path, '_result.json')
+        if human_eval:
+            self.human_eval_files = get_files(self.path, '.txt')
 
 
     def task_evaluation(self):
@@ -119,4 +121,33 @@ class Evaluator:
                 log(f'{colorstr(task):<27} | length: {total_length}, supervisor effect: {supervisor_effect_cnt} ({(supervisor_effect_cnt/total_length)*100:.2f}%)')
                 log(f'    - {colorstr("green", "correct")}: {correct} ({correct_p:.2f}%), {colorstr("yellow", "tie")}: {tie} ({tie_p:.2f}%)')
                 log(f'    - Feedback distribution: {desc}')
+    
 
+    def human_evaluation(self):
+        scores = {'arena': dict(), 'score': dict()}
+        all_lines = list()
+        for file in self.human_eval_files:
+            with open(file, 'r') as f:
+                lines = f.readlines()
+                all_lines.extend([line.strip() for line in lines if line.strip()])
+        
+        for line in all_lines:
+            arena, score_a, score_b, model_a, model_b = line.split('\t')
+            scores['arena'].setdefault(model_a, 0)
+            scores['arena'].setdefault(model_b, 0)
+            scores['score'].setdefault(model_a, [])
+            scores['score'].setdefault(model_b, [])
+            
+            if arena == 'A':
+                scores['arena'][model_a] += 1
+            else:
+                scores['arena'][model_b] += 1
+
+            scores['score'][model_a].append(float(score_a))
+            scores['score'][model_b].append(float(score_b))
+
+        log('--------------Human Evaluation--------------')
+        for model in scores['arena'].keys():
+            arena_wins = scores['arena'][model]
+            avg_score = sum(scores['score'][model]) / len(scores['score'][model])
+            log(f'{colorstr(model):<15} | Arena wins: {colorstr("green", str(arena_wins))}, Average score: {colorstr("green", f"{avg_score:.2f}")}')

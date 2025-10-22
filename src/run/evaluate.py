@@ -9,7 +9,7 @@ from utils import log
 
 
 def main(args):
-    evaluator = Evaluator(args.path)
+    evaluator = Evaluator(args.path, human_eval='human' in args.type)
     
     if 'task' in args.type:
         evaluator.task_evaluation()
@@ -18,13 +18,14 @@ def main(args):
     if 'supervisor' in args.type:
         evaluator.supervisor_evaluation()
 
-
+    if 'human' in args.type:
+        evaluator.human_evaluation()
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-p', '--path', type=str, required=True, help='Agent test results folder directory')
-    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['task', 'supervisor'], help='Task types you want to evaluate (you can specify multiple)')
+    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['task', 'supervisor', 'human'], help='Task types you want to evaluate (you can specify multiple)')
     args = parser.parse_args()
 
     main(args)
