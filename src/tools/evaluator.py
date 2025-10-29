@@ -170,7 +170,6 @@ class Evaluator:
             aggregated_results['intake']['pred'].extend(data['intake']['pred'])
             aggregated_results['intake']['status'].extend(data['intake']['status'])
 
-        error_stat = dict()
         gt = aggregated_results['intake']['gt']
         pred = aggregated_results['intake']['pred']
         status = aggregated_results['intake']['status']
@@ -182,12 +181,6 @@ class Evaluator:
                 
                 if pred_dept not in gt_depts:
                     dept_err_n += 1
-
-                for gt_dept in gt_depts:
-                    error_stat.setdefault(gt_dept, dict())
-                    for p_dept in pred_dept:
-                        error_stat[gt_dept].setdefault(p_dept, 0)
-                        error_stat[gt_dept][p_dept] += 1
         
         log('--------------Department Evaluation--------------')
         log(f'Error rate: {colorstr("red", f"{(dept_err_n/total_n)*100:.2f}%")}, length: {dept_err_n} / {total_n}')
