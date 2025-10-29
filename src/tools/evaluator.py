@@ -124,6 +124,9 @@ class Evaluator:
     
 
     def human_evaluation(self):
+        """
+        Aggregate and evaluate human evaluation results from text files.
+        """
         scores = {'arena': dict(), 'score': dict()}
         all_lines = list()
         for file in self.human_eval_files:
@@ -149,5 +152,7 @@ class Evaluator:
         log('--------------Human Evaluation--------------')
         for model in scores['arena'].keys():
             arena_wins = scores['arena'][model]
-            avg_score = sum(scores['score'][model]) / len(scores['score'][model])
-            log(f'{colorstr(model):<15} | Arena wins: {colorstr("green", str(arena_wins))}, Average score: {colorstr("green", f"{avg_score:.2f}")}')
+            score_list = scores['score'][model]
+            avg_score = sum(score_list) / len(score_list)
+            stdv = round((sum((x - avg_score) ** 2 for x in score_list) / len(score_list)) ** 0.5, 2) if len(score_list) > 1 else 0.0
+            log(f'{colorstr(model):<15} | Arena wins: {colorstr("green", str(arena_wins))}, Average score: {colorstr("green", f"{avg_score:.2f} ± {stdv}")}')

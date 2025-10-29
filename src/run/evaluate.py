@@ -17,9 +17,13 @@ def main(args):
 
     if 'supervisor' in args.type:
         evaluator.supervisor_evaluation()
+        log('')
 
     if 'human' in args.type:
         evaluator.human_evaluation()
+        log('')
+
+
 
 
 if __name__ == '__main__':
