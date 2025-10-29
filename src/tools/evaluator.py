@@ -156,3 +156,38 @@ class Evaluator:
             avg_score = sum(score_list) / len(score_list)
             stdv = round((sum((x - avg_score) ** 2 for x in score_list) / len(score_list)) ** 0.5, 2) if len(score_list) > 1 else 0.0
             log(f'{colorstr(model):<15} | Arena wins: {colorstr("green", str(arena_wins))}, Average score: {colorstr("green", f"{avg_score:.2f} ± {stdv}")}')
+
+
+    def department_evaluation(self):
+        """
+        Evaluate solely department prediction accuracy.
+        """
+        aggregated_results = {'intake': {'gt': [], 'pred': [], 'status': []}}
+        
+        for file in self.files:
+            data = json_load(file)
+            aggregated_results['intake']['gt'].extend(data['intake']['gt'])
+            aggregated_results['intake']['pred'].extend(data['intake']['pred'])
+            aggregated_results['intake']['status'].extend(data['intake']['status'])
+
+        error_stat = dict()
+        gt = aggregated_results['intake']['gt']
+        pred = aggregated_results['intake']['pred']
+        status = aggregated_results['intake']['status']
+        total_n, dept_err_n = len(gt), 0
+        for g, p, s in zip(gt, pred, status):
+            if not s:
+                gt_depts = g['department']
+                pred_dept = p['department'][0]
+                
+                if pred_dept not in gt_depts:
+                    dept_err_n += 1
+
+                for gt_dept in gt_depts:
+                    error_stat.setdefault(gt_dept, dict())
+                    for p_dept in pred_dept:
+                        error_stat[gt_dept].setdefault(p_dept, 0)
+                        error_stat[gt_dept][p_dept] += 1
+        
+        log('--------------Department Evaluation--------------')
+        log(f'Error rate: {colorstr("red", f"{(dept_err_n/total_n)*100:.2f}%")}, length: {dept_err_n} / {total_n}')

@@ -23,13 +23,17 @@ def main(args):
         evaluator.human_evaluation()
         log('')
 
+    if 'department' in args.type:
+        evaluator.department_evaluation()
+        log('')
+
 
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-p', '--path', type=str, required=True, help='Agent test results folder directory')
-    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['task', 'supervisor', 'human'], help='Task types you want to evaluate (you can specify multiple)')
+    parser.add_argument('-t', '--type', type=str, required=True, nargs='+', choices=['task', 'supervisor', 'human', 'department'], help='Task types you want to evaluate (you can specify multiple)')
     args = parser.parse_args()
 
     main(args)
