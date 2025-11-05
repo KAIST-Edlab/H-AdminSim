@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llm-agent-poetry"
-version = "0.1.0"
+version = "0.7.1"
 description = ""
 authors = ["Jun-Min Lee <ljm56897@gmail.com>"]
 readme = "README.md"
