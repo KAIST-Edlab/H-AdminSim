@@ -16,6 +16,7 @@ from tools import (
     GPTLangChainClient,
     VLLMClient,
     DataConverter,
+    SchedulingRule,
 )
 from registry import STATUS_CODES, SCHEDULING_ERROR_CAUSE
 from utils import log
@@ -685,21 +686,6 @@ class AssignSchedule(Task):
                                                                        self._END_HOUR, 
                                                                        self._TIME_UNIT, 
                                                                        fs) for fs in schedule], [])
-                # if date == pred_date:                
-                #     free_time = [s for s in range(prediction_schedule_segments[0]) if s not in fixed_schedule_segments]
-                # # date < pred_date case
-                # else:
-                #     all_time_segments = convert_time_to_segment(self._START_HOUR, self._END_HOUR, self._TIME_UNIT)
-                #     free_time = [s for s in range(len(all_time_segments)) if s not in fixed_schedule_segments]
-                
-                # if len(free_time):
-                #     valid_time_segments = sum([seg for seg in group_consecutive_segments(free_time) if len(seg) >= min_time_slot_n], [])
-                #     free_max_st, _ = convert_segment_to_time(self._START_HOUR, self._END_HOUR, self._TIME_UNIT, [valid_time_segments[-min_time_slot_n]])
-                #     free_max_st_iso = get_iso_time(free_max_st, date, utc_offset=utc_offset)
-
-                #     if compare_iso_time(free_max_st_iso, current_time):
-                #         return False
-                    
                 all_time_segments = convert_time_to_segment(self._START_HOUR, self._END_HOUR, self._TIME_UNIT)
                 free_time = [s for s in range(len(all_time_segments)) if s not in fixed_schedule_segments]
                 
@@ -1045,6 +1031,7 @@ class AssignSchedule(Task):
         feedback_cnt, trial, feedback_msg = 0, list(), list()
         reschedule_desc = "Rescheduling requested. This is the rescheduling of a patient who wishes to move their appointment earlier due to a previous patient's cancelled reservation" \
             if reschedule_flag else 'Not requested.'
+        
         while 1:
             filtered_doctor_information = self.__filter_doctor_schedule(doctor_information, department, environment, True)
             preference_desc = self.preference_phrase[patient_condition.get('preference')] if patient_condition.get('preference') != 'date' \
@@ -1142,6 +1129,32 @@ class AssignSchedule(Task):
             
             break
         
+
+        # ################################# Rule-based Scheduling #################################
+        # prediction = self.rules.scheduling_rule(
+        #     patient_condition,
+        #     doctor_information,
+        #     verbose=verbose,
+        # )
+
+        # status, status_code, prediction, doctor_information = self._sanity_check(
+        #         prediction, 
+        #         patient_condition,
+        #         doctor_information,
+        #         environment
+        #     )
+        
+        # trial.append(status_code)
+
+        # if verbose: 
+        #     log(f'Pred  : {prediction}')
+        #     log(f'Status: {status_code}')
+
+        
+        # if not status:
+        #     print()
+        # #########################################################################################
+        
         # Append token data and reset agents
         self.save_token_data(
             self.task_client.token_usages, 
@@ -1221,6 +1234,7 @@ class AssignSchedule(Task):
         self._DAY = self._metadata.get('days')
         doctor_information = environment.doctor_info_from_fhir() if self.integration_with_fhir else agent_test_data.get('doctor')
         department, sanity = self.__extract_department(gt, agent_results, doctor_information)
+        self.rules = SchedulingRule(self._metadata, environment)
 
         patient_condition = {
             'patient': test_data.get('patient'), 
