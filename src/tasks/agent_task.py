@@ -8,16 +8,18 @@ from typing import Tuple, Union, Optional
 from google.genai.errors import ServerError
 from patientsim.environment import OPSimulation
 from patientsim import AdminStaffAgent, PatientAgent
+from langchain_openai import ChatOpenAI
+from langchain.prompts.chat import ChatPromptTemplate
+from langchain.agents import create_openai_tools_agent, AgentExecutor
 
 from tools import (
     GeminiClient,
-    GeminiLangChainClient,
     GPTClient,
-    GPTLangChainClient,
     VLLMClient,
     DataConverter,
     SchedulingRule,
 )
+from tools.scheduling_rule import create_tools, scheduling_tool_calling
 from registry import STATUS_CODES, SCHEDULING_ERROR_CAUSE
 from utils import log
 from utils.fhir_utils import *
@@ -439,7 +441,11 @@ class AssignSchedule(Task):
         # Initialize variables
         self.name = 'schedule'
         self.max_retries = 8
-        self.use_supervisor = config.schedule_task.use_supervisor
+        self.scheduling_strategy = config.schedule_task.scheduling_strategy
+        assert self.scheduling_strategy in ['llm', 'tool_calling', 'rule'], log('Scheduling strategy must be either "llm", "tool_calling", or "rule".', 'error')
+        self.use_supervisor = config.schedule_task.use_supervisor if self.scheduling_strategy == 'llm' else False
+        if self.use_supervisor != config.schedule_task.use_supervisor:
+            log('The use_supervisor setting is ignored when scheduling_strategy is not "llm".', 'warning')
         self.task_model = config.task_model
         self._task_system_prompt_path = config.schedule_task.task_system_prompt
         self._task_user_prompt_path = config.schedule_task.task_user_prompt
@@ -456,21 +462,25 @@ class AssignSchedule(Task):
         # Initialize prompts and token data
         self.task_system_prompt = txt_load(self._task_system_prompt_path)
         self.task_user_prompt_template = txt_load(self._task_user_prompt_path)
+        self.tool_calling_system_prompt = txt_load(config.schedule_task.tool_calling_prompt) if self.scheduling_strategy == 'tool_calling' else None
         self.token_stats = {
             'task_token': {'input':[], 'output': [], 'reasoning': []}, 
             'supervisor_token': {'input':[], 'output': [], 'reasoning': []}
         }
 
         # Initialize task model
-        if 'gemini' in self.task_model.lower():
-            self.task_client = GeminiClient(self.task_model)
-            self.task_reasoning_kwargs = {}
-        elif 'gpt' in self.task_model.lower():
-            self.task_client = GPTClient(self.task_model)
-            self.task_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.task_model.lower() else {}
-        else:
-            self.task_client = VLLMClient(self.task_model, config.vllm_url)
-            self.task_reasoning_kwargs = {}
+        if self.scheduling_strategy == 'llm':
+            if 'gemini' in self.task_model.lower():
+                self.task_client = GeminiClient(self.task_model)
+                self.task_reasoning_kwargs = {}
+            elif 'gpt' in self.task_model.lower():
+                self.task_client = GPTClient(self.task_model)
+                self.task_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.task_model.lower() else {}
+            else:
+                self.task_client = VLLMClient(self.task_model, config.vllm_url)
+                self.task_reasoning_kwargs = {}
+        elif self.scheduling_strategy == 'tool_calling':
+            self.task_client = None
 
         # If you use supervisor model
         self.max_feedback_number = config.schedule_task.max_feedback_number
@@ -490,7 +500,40 @@ class AssignSchedule(Task):
             else:
                 self.supervisor_client = VLLMClient(self.supervisor_model, config.vllm_url)
                 self.sup_reasoning_kwargs = {}
-        
+
+    
+    def build_agent(self, rule: SchedulingRule, doctor_info: dict) -> AgentExecutor:
+        """
+        Build a LangChain agent with scheduling tools.
+
+        Args:
+            rule (SchedulingRule): An instance of SchedulingRule containing scheduling logic.
+            doctor_info (dict): A dictionary containing information about doctors.
+
+        Returns:
+            AgentExecutor: A LangChain agent executor with the scheduling tools.
+        """
+        llm = ChatOpenAI(model_name=self.task_model, temperature=0 if not 'gpt-5' in self.task_model.lower() else 1)
+        tools = create_tools(rule, doctor_info)
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", self.tool_calling_system_prompt),
+            ("user", "{input}"),
+            ("assistant", "{agent_scratchpad}"),
+        ])
+        agent = create_openai_tools_agent(
+            llm=llm,
+            tools=tools,
+            prompt=prompt
+        )
+        executor = AgentExecutor(
+            agent=agent,
+            tools=tools,
+            verbose=False,
+            max_iterations=1,
+            return_intermediate_steps=True,
+        )
+        return executor
+            
     
     @staticmethod
     def postprocessing(text: Union[str, dict]) -> Union[str, dict]:
@@ -1020,116 +1063,131 @@ class AssignSchedule(Task):
         reschedule_desc = "Rescheduling requested. This is the rescheduling of a patient who wishes to move their appointment earlier due to a previous patient's cancelled reservation" \
             if reschedule_flag else 'Not requested.'
         
-        while 1:
-            filtered_doctor_information = self.__filter_doctor_schedule(doctor_information, department, environment, True)
-            preference_desc = self.preference_phrase[patient_condition.get('preference')] if patient_condition.get('preference') != 'date' \
-                else self.preference_phrase[patient_condition.get('preference')].format(date=patient_condition.get('valid_from'))
-            user_prompt = self.task_user_prompt_template.format(
-                START_HOUR=self._START_HOUR,
-                END_HOUR=self._END_HOUR,
-                TIME_UNIT=self._TIME_UNIT,
-                CURRENT_TIME=environment.current_time,
-                DEPARTMENT=department,
-                PREFERENCE=preference_desc,
-                PREFERRED_DOCTOR=patient_condition.get('preferred_doctor'),
-                RESCHEDULING_FLAG=reschedule_desc,
-                DAY=self._DAY,
-                DOCTOR=json.dumps(filtered_doctor_information, indent=2),
-                PREV_ANSWER=prev_prediction,
-                FEEDBACK= feedback,
-            )
-            
-            # Due to unstable gemini API
-            retry_count = 0
+        ################################# LLM-based Scheduling #################################
+        if self.scheduling_strategy == 'llm':
             while 1:
-                try:
-                    prediction = self.task_client(
-                        user_prompt,
-                        system_prompt=self.task_system_prompt, 
-                        using_multi_turn=self.max_feedback_number > 0,
-                        verbose=False,
-                        **self.task_reasoning_kwargs
-                    )
-                    break
-                except (ServerError, InternalServerError) as e:
-                    if retry_count >= self.max_retries:
-                        log(f"\nMax retries reached. Last error: {e}", level='error')
-                        raise e
-                    wait_time = exponential_backoff(retry_count)
-                    log(f"[{retry_count + 1}/{self.max_retries}] {type(e).__name__}: {e}. Retrying in {wait_time:.1f} seconds...", level='warning')
-                    time.sleep(wait_time)
-                    retry_count += 1
+                filtered_doctor_information = self.__filter_doctor_schedule(doctor_information, department, environment, True)
+                preference_desc = self.preference_phrase[patient_condition.get('preference')] if patient_condition.get('preference') != 'date' \
+                    else self.preference_phrase[patient_condition.get('preference')].format(date=patient_condition.get('valid_from'))
+                user_prompt = self.task_user_prompt_template.format(
+                    START_HOUR=self._START_HOUR,
+                    END_HOUR=self._END_HOUR,
+                    TIME_UNIT=self._TIME_UNIT,
+                    CURRENT_TIME=environment.current_time,
+                    DEPARTMENT=department,
+                    PREFERENCE=preference_desc,
+                    PREFERRED_DOCTOR=patient_condition.get('preferred_doctor'),
+                    RESCHEDULING_FLAG=reschedule_desc,
+                    DAY=self._DAY,
+                    DOCTOR=json.dumps(filtered_doctor_information, indent=2),
+                    PREV_ANSWER=prev_prediction,
+                    FEEDBACK= feedback,
+                )
+                
+                # Due to unstable gemini API
+                retry_count = 0
+                while 1:
+                    try:
+                        prediction = self.task_client(
+                            user_prompt,
+                            system_prompt=self.task_system_prompt, 
+                            using_multi_turn=self.max_feedback_number > 0,
+                            verbose=False,
+                            **self.task_reasoning_kwargs
+                        )
+                        break
+                    except (ServerError, InternalServerError) as e:
+                        if retry_count >= self.max_retries:
+                            log(f"\nMax retries reached. Last error: {e}", level='error')
+                            raise e
+                        wait_time = exponential_backoff(retry_count)
+                        log(f"[{retry_count + 1}/{self.max_retries}] {type(e).__name__}: {e}. Retrying in {wait_time:.1f} seconds...", level='warning')
+                        time.sleep(wait_time)
+                        retry_count += 1
+                        continue
+                
+                prediction = AssignSchedule.postprocessing(prediction)    
+                status, status_code, prediction, doctor_information = self._sanity_check(
+                    prediction, 
+                    patient_condition,
+                    doctor_information,
+                    environment
+                )
+                trial.append(status_code)
+
+                if status:
+                    prediction['last_updated_time'] = environment.current_time
+
+                if verbose: 
+                    log(f'Pred  : {prediction}')
+                    log(f'Status: {status_code}')
+                
+                if not status and feedback_cnt < self.max_feedback_number:
+                    prev_prediction += json.dumps(prediction) + f': {status_code}\n'
+                    
+                    # Supervisor's feedback
+                    if self.use_supervisor:
+                        feedback = self.feedback(prediction, status_code, prev_prediction, filtered_doctor_information, environment)
+                        feedback_cnt += 1
+                    
+                    # Self feedback
+                    else:
+                        reasons = '\n'.join(SCHEDULING_ERROR_CAUSE[status_code])
+                        feedback = f'{status_code}\n{reasons}'
+                        feedback_cnt += 1
+                    
+                    feedback_msg.append(feedback)
                     continue
+                
+                break
+
+            # Append token data and reset agents
+            self.save_token_data(
+                self.task_client.token_usages, 
+                supervisor_token=self.supervisor_client.token_usages if self.use_supervisor else None
+            )
+            self.task_client.reset_history(verbose=False)
+            if self.use_supervisor:
+                self.supervisor_client.reset_history(verbose=False)
             
-            prediction = AssignSchedule.postprocessing(prediction)    
-            status, status_code, prediction, doctor_information = self._sanity_check(
-                prediction, 
+        ################################# Rule-based Scheduling ################################
+        elif self.scheduling_strategy == 'rule':
+            prediction = self.rules.scheduling_rule(
                 patient_condition,
                 doctor_information,
-                environment
+                verbose=verbose,
             )
-            trial.append(status_code)
 
-            if status:
-                prediction['last_updated_time'] = environment.current_time
+            status, status_code, prediction, doctor_information = self._sanity_check(
+                    prediction, 
+                    patient_condition,
+                    doctor_information,
+                    environment
+                )
+            
+            trial.append(status_code)
 
             if verbose: 
                 log(f'Pred  : {prediction}')
-                log(f'Status: {status_code}')
+                log(f'Status: {status_code}')    
+        
+        ############################# Tool calling-based Scheduling ############################
+        else:
+            self.client = self.build_agent(self.rules, self.__filter_doctor_schedule(doctor_information, department, environment))
+            prediction = scheduling_tool_calling(self.client, self.rules, patient_condition, doctor_information)
             
-            if not status and feedback_cnt < self.max_feedback_number:
-                prev_prediction += json.dumps(prediction) + f': {status_code}\n'
-                
-                # Supervisor's feedback
-                if self.use_supervisor:
-                    feedback = self.feedback(prediction, status_code, prev_prediction, filtered_doctor_information, environment)
-                    feedback_cnt += 1
-                
-                # Self feedback
-                else:
-                    reasons = '\n'.join(SCHEDULING_ERROR_CAUSE[status_code])
-                    feedback = f'{status_code}\n{reasons}'
-                    feedback_cnt += 1
-                
-                feedback_msg.append(feedback)
-                continue
+            status, status_code, prediction, doctor_information = self._sanity_check(
+                    prediction, 
+                    patient_condition,
+                    doctor_information,
+                    environment
+                )
             
-            break
-        
+            trial.append(status_code)
 
-        # ################################# Rule-based Scheduling #################################
-        # prediction = self.rules.scheduling_rule(
-        #     patient_condition,
-        #     doctor_information,
-        #     verbose=verbose,
-        # )
-
-        # status, status_code, prediction, doctor_information = self._sanity_check(
-        #         prediction, 
-        #         patient_condition,
-        #         doctor_information,
-        #         environment
-        #     )
-        
-        # trial.append(status_code)
-
-        # if verbose: 
-        #     log(f'Pred  : {prediction}')
-        #     log(f'Status: {status_code}')
-
-        
-        # if not status:
-        #     print()
-        # #########################################################################################
-        
-        # Append token data and reset agents
-        self.save_token_data(
-            self.task_client.token_usages, 
-            supervisor_token=self.supervisor_client.token_usages if self.use_supervisor else None
-        )
-        self.task_client.reset_history(verbose=False)
-        if self.use_supervisor:
-            self.supervisor_client.reset_history(verbose=False)
+            if verbose: 
+                log(f'Pred  : {prediction}')
+                log(f'Status: {status_code}') 
 
         return status, status_code, prediction, doctor_information, trial, feedback_msg
     

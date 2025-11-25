@@ -1,30 +1,18 @@
-import json
-import time
-import random
 from copy import deepcopy
-from decimal import Decimal, getcontext
-from openai import InternalServerError
-from typing import Tuple, Union, Optional
-from google.genai.errors import ServerError
-from patientsim.environment import OPSimulation
-from patientsim import AdminStaffAgent, PatientAgent
+from decimal import Decimal
+from typing import Tuple, Union
+from langchain.tools import tool
 
-from registry import STATUS_CODES, SCHEDULING_ERROR_CAUSE
-from utils import log
 from utils.fhir_utils import *
-from utils.filesys_utils import txt_load, json_load
 from utils.common_utils import (
     group_consecutive_segments,
     convert_segment_to_time,
     convert_time_to_segment,
-    exponential_backoff,
     compare_iso_time,
     get_iso_time,
     iso_to_date,
     iso_to_hour,
 )
-
-
 
 
 
@@ -38,7 +26,7 @@ class SchedulingRule:
         self._TIME_UNIT = metadata.get('time').get('interval_hour')
 
 
-    def __filter_doctor_schedule(self, doctor_information: dict, department: str, express_detail: bool = False) -> dict:
+    def filter_doctor_schedule(self, doctor_information: dict, department: str, express_detail: bool = False) -> dict:
         """
         Filter doctor information by department.
 
@@ -72,7 +60,17 @@ class SchedulingRule:
         return filtered_doctor_information
     
 
-    def physician_filter(self, filtered_doctor_information, preferred_doctor):
+    def physician_filter(self, filtered_doctor_information: dict, preferred_doctor: str) -> set:
+        """
+        Filter schedules by preferred doctor.
+
+        Args:
+            filtered_doctor_information (dict): Filtered doctor information after department filtering.
+            preferred_doctor (str): The identifier of the preferred doctor.
+
+        Returns:
+            set: A set of candidate schedules that match the preferred doctor.
+        """
         candidate_schedules = set()
         schedule_info = filtered_doctor_information['doctor'][preferred_doctor]
         schedule_candidates = schedule_info['schedule']
@@ -100,7 +98,17 @@ class SchedulingRule:
         return candidate_schedules
     
 
-    def date_filter(self, filtered_doctor_information, valid_date):
+    def date_filter(self, filtered_doctor_information: dict, valid_date: str) -> set:
+        """
+        Filter schedules by valid date.
+
+        Args:
+            filtered_doctor_information (dict): Filtered doctor information after department filtering.
+            valid_date (str): The valid date from which to consider schedules.
+
+        Returns:
+            set: A set of candidate schedules that are on or after the valid date.
+        """
         candidate_schedules = set()
         schedule_infos = filtered_doctor_information['doctor']
 
@@ -131,7 +139,16 @@ class SchedulingRule:
         return candidate_schedules
     
 
-    def no_filter(self, filtered_doctor_information):
+    def no_filter(self, filtered_doctor_information: dict) -> set:
+        """
+        Get all candidate schedules without any filtering.
+
+        Args:
+            filtered_doctor_information (dict): Filtered doctor information after department filtering.
+
+        Returns:
+            set: A set of all candidate schedules without any filtering.
+        """
         candidate_schedules = set()
         schedule_infos = filtered_doctor_information['doctor']
 
@@ -162,6 +179,16 @@ class SchedulingRule:
     
 
     def find_earliest_time(self, schedules: list[str], delimiter: str = ';;;') -> dict:
+        """
+        Find the earliest schedule from the list of schedules.
+
+        Args:
+            schedules (list[str]): A list of schedules in the format "doctor;;;iso_time".
+            delimiter (str, optional): The delimiter used to split doctor and iso_time. Defaults to ';;;'.
+
+        Returns:
+            dict: A dictionary containing the earliest doctor(s) and their corresponding schedule(s).
+        """
         earliest_doctor, earliest_time = list(), list()
 
         for schedule in schedules:
@@ -213,7 +240,7 @@ class SchedulingRule:
         preference = patient_condition['preference'] if isinstance(patient_condition['preference'], list) else [patient_condition['preference']]
         preferred_doctor = patient_condition['preferred_doctor']
         valid_date = patient_condition['valid_from']
-        filtered_doctor_information = self.__filter_doctor_schedule(doctor_information, department)
+        filtered_doctor_information = self.filter_doctor_schedule(doctor_information, department)
         
         basic_schedule = self.no_filter(filtered_doctor_information)
         if 'doctor' in preference:
@@ -239,3 +266,90 @@ class SchedulingRule:
         tr_hour = float(Decimal(str(duration)) + Decimal(str(st_hour)))
 
         return {'schedule': {doctor: {'date': date, 'start': st_hour, 'end': tr_hour}}}
+
+
+
+def create_tools(rule: SchedulingRule, filtered_doctor_info: dict) -> list[tool]:
+    @tool
+    def physician_filter_tool(preferred_doctor: str) -> list:
+        """Return available schedules for preferred doctor.
+        
+        Args:
+            preferred_doctor: Name of the preferred doctor
+        """
+        result = rule.physician_filter(filtered_doctor_info, preferred_doctor)
+        return list(result)
+
+    @tool
+    def date_filter_tool(valid_date: str) -> list:
+        """Return schedules for a preferred date.
+        
+        Args:
+            valid_date: Date in YYYY-MM-DD format
+        """
+        result = rule.date_filter(filtered_doctor_info, valid_date)
+        return list(result)
+
+    @tool
+    def no_filter_tool() -> list:
+        """Return all available schedules without filtering."""
+        result = rule.no_filter(filtered_doctor_info)
+        return list(result)
+
+    return [physician_filter_tool, date_filter_tool, no_filter_tool]
+
+
+
+def scheduling_tool_calling(client, rule: SchedulingRule, patient_condition: dict, doctor_information: dict) -> dict:
+    """
+    Make an appointment using tool-calling agent.
+
+    Args:
+        client (AgentExecutor): The agent executor to handle tool calls.
+        rule (SchedulingRule): The scheduling rule instance.
+        patient_condition (dict): The conditions including name, preference, etc.
+        doctor_information (dict): A dictionary containing information about the doctor(s) involved,
+                                   including availability and other relevant details.
+    
+    Returns:
+        dict: A dictionary containing the scheduled doctor and their corresponding schedule.
+    """
+    schedule1, schedule2 = list(), list()
+    department = patient_condition['department']
+    preference = patient_condition['preference'] if isinstance(patient_condition['preference'], list) else [patient_condition['preference']]
+    preferred_doctor = patient_condition['preferred_doctor']
+    valid_date = patient_condition['valid_from']
+    filtered_doctor_information = rule.filter_doctor_schedule(doctor_information, department)
+
+    basic_schedule = client.invoke({
+        'input': f"I don't have any preferences, just want the earliest time."
+    })['intermediate_steps'][0][1]
+    
+    if 'doctor' in preference:
+        schedule1 = client.invoke({
+            'input': f"I need to schedule an appointment. Preferred physician: {preferred_doctor}"
+        })['intermediate_steps'][0][1]
+    
+    if 'date' in preference:
+        schedule2 = client.invoke({
+            'input': f"I need to schedule an appointment. Preferred date: From {valid_date}"
+        })['intermediate_steps'][0][1]
+    
+    if not (len(schedule1) or len(schedule2)):
+            schedule = basic_schedule
+    else:
+        if len(schedule1) and len(schedule2):
+            schedule = list(set(schedule1).intersection(set(schedule2)))
+        elif len(schedule1):
+            schedule = list(schedule1)
+        elif len(schedule2):
+            schedule = list(schedule2)
+    
+    schedule = rule.find_earliest_time(schedule)
+    
+    doctor = schedule['doctor'][0]
+    duration = filtered_doctor_information['doctor'][doctor]['outpatient_duration']
+    date, st_hour = iso_to_date(schedule['schedule'][0]), iso_to_hour(schedule['schedule'][0])
+    tr_hour = float(Decimal(str(duration)) + Decimal(str(st_hour)))
+    
+    return {'schedule': {doctor: {'date': date, 'start': st_hour, 'end': tr_hour}}}
