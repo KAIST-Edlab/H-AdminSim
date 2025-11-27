@@ -2,6 +2,7 @@ import json
 import time
 import random
 from copy import deepcopy
+from dotenv import load_dotenv
 from decimal import Decimal, getcontext
 from openai import InternalServerError
 from typing import Tuple, Union, Optional
@@ -9,8 +10,13 @@ from google.genai.errors import ServerError
 from patientsim.environment import OPSimulation
 from patientsim import AdminStaffAgent, PatientAgent
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts.chat import ChatPromptTemplate
-from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain.agents import (
+    AgentExecutor,
+    create_openai_tools_agent, 
+    create_tool_calling_agent, 
+)
 
 from tools import (
     GeminiClient,
@@ -480,6 +486,7 @@ class AssignSchedule(Task):
                 self.task_client = VLLMClient(self.task_model, config.vllm_url)
                 self.task_reasoning_kwargs = {}
         elif self.scheduling_strategy == 'tool_calling':
+            load_dotenv(override=True)
             self.task_client = None
 
         # If you use supervisor model
@@ -513,18 +520,35 @@ class AssignSchedule(Task):
         Returns:
             AgentExecutor: A LangChain agent executor with the scheduling tools.
         """
-        llm = ChatOpenAI(model_name=self.task_model, temperature=0 if not 'gpt-5' in self.task_model.lower() else 1)
         tools = create_tools(rule, doctor_info)
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.tool_calling_system_prompt),
             ("user", "{input}"),
             ("assistant", "{agent_scratchpad}"),
         ])
-        agent = create_openai_tools_agent(
-            llm=llm,
-            tools=tools,
-            prompt=prompt
-        )
+        
+        if 'gemini' in self.task_model.lower():
+            llm = ChatGoogleGenerativeAI(
+                model=self.task_model,
+                temperature=0,
+            )
+            agent = create_tool_calling_agent(
+                llm=llm,
+                tools=tools,
+                prompt=prompt
+            )
+
+        elif 'gpt' in self.task_model.lower():
+            llm = ChatOpenAI(
+                model_name=self.task_model, 
+                temperature=0 if not 'gpt-5' in self.task_model.lower() else 1
+            )
+            agent = create_openai_tools_agent(
+                llm=llm,
+                tools=tools,
+                prompt=prompt
+            )
+    
         executor = AgentExecutor(
             agent=agent,
             tools=tools,
