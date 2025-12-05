@@ -2,6 +2,7 @@
 
 
 ### Recent updates 📣
+* *December 2025 (v0.7.2)*: Rule-based and tool calling-based scheduling logics have been supported.
 * *November 2025 (v0.7.1)*: Self-corrective feedback logic has been supported.
 * *October 2025 (v0.7.0)*: Simulation has been improved reflecting feedbacks from experts.
 * *September 2025 (v0.6.0)*: Simulation has been improved reflecting feedbacks from experts.
