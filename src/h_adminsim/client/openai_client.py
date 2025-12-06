@@ -2,35 +2,42 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List, Tuple, Optional
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 
-from registry import ScheduleModel
-from utils import log
-from utils.image_preprocess_utils import *
+from h_adminsim.utils import log
+from h_adminsim.utils.image_preprocess_utils import *
 
 
+########### For langchain integration (currently not used) ############
+# from langchain_openai import ChatOpenAI
+# from langchain_core.prompts import ChatPromptTemplate
+# from langchain_core.output_parsers import JsonOutputParser
+# from h_adminsim.registry import ScheduleModel
+#######################################################################
 
-class VLLMClient:
-    def __init__(self, model: str, vllm_url: str):
+
+
+class GPTClient:
+    def __init__(self, model: str, api_key: Optional[str] = None):
+        # Iniitialize
         self.model = model
-        self.vllm_url = vllm_url
-        self._init_environment()
+        self._init_environment(api_key)
         self.histories = list()
         self.token_usages = dict()
-        self.__first_turn = False
+        self.__first_turn = True
 
 
-    def _init_environment(self):
+    def _init_environment(self, api_key: Optional[str] = None) -> None:
         """
-        Initialize vLLM OpenAI-formatted client.
+        Initialize OpenAI client.
+
+        Args:
+            api_key (Optional[str]): API key for OpenAI. If not provided, it will
+                                     be loaded from environment variables.
         """
-        load_dotenv(override=True)
-        self.client = OpenAI(
-            base_url=f'{self.vllm_url}/v1',
-            api_key='EMPTY'
-        )
+        if not api_key:
+            load_dotenv(override=True)
+            api_key = os.environ.get("OPENAI_API_KEY", None)
+        self.client = OpenAI(api_key=api_key)
 
     
     def reset_history(self, verbose: bool = True) -> None:
@@ -52,7 +59,7 @@ class VLLMClient:
                        image_path: Optional[str] = None,
                        image_size: Optional[Tuple[int]] = None) -> List[dict]:
         """
-        Create a payload for API calls to the model.
+        Create a payload for API calls to the GPT model.
 
         Args:
             user_prompt (str): User prompt.
@@ -119,16 +126,16 @@ class VLLMClient:
             # To ensure empty history
             if not using_multi_turn:
                 self.reset_history(verbose)
-
+            
             if self.__first_turn:
                 # System prompt
                 if system_prompt:
                     self.histories.append({"role": "system", "content": system_prompt})
                 self.__first_turn = False
-
+            
             # User prompt
             self.histories += self.__make_payload(user_prompt, image_path, image_size)
-            
+
             # Model response
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -143,8 +150,49 @@ class VLLMClient:
                 self.token_usages.setdefault("prompt_tokens", []).append(response.usage.prompt_tokens)
                 self.token_usages.setdefault("completion_tokens", []).append(response.usage.completion_tokens)
                 self.token_usages.setdefault("total_tokens", []).append(response.usage.total_tokens)
+                self.token_usages.setdefault("reasoning_tokens", []).append(response.usage.completion_tokens_details.reasoning_tokens)
 
             return assistant_msg.content
         
         except Exception as e:
             raise e
+
+
+
+# class GPTLangChainClient(GPTClient):
+#     def __init__(self, model: str):
+#         super(GPTLangChainClient, self).__init__(model)
+#         self.client_lc = ChatOpenAI(
+#             model=self.model,
+#             api_key=self.client.api_key
+#         )
+
+    
+#     def __call__(self,
+#                  user_prompt: str,
+#                  system_prompt: Optional[str] = None,
+#                  image_path: Optional[str] = None,
+#                  image_size: Optional[Tuple[int]] = None,
+#                  using_multi_turn: bool = False,
+#                  **kwargs) -> str:
+#         try:
+#             # To ensure empty history
+#             self.reset_history()
+
+#             # Prompts
+#             parser = JsonOutputParser(pydantic_object=ScheduleModel)
+#             prompt = ChatPromptTemplate.from_messages(
+#                 [
+#                     ('system', system_prompt),
+#                     ('human', user_prompt)
+#                 ]
+#             ).partial(format_instructions=parser.get_format_instructions())
+#             chain = prompt | self.client_lc | parser
+            
+#             # Model response
+#             response = chain.invoke(kwargs)
+
+#             return response
+        
+#         except Exception as e:
+#             raise e

@@ -4,31 +4,42 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from typing import List, Tuple, Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 
-from registry import ScheduleModel
-from utils import log
-from utils.common_utils import exponential_backoff
-from utils.image_preprocess_utils import *
+from h_adminsim.utils import log
+from h_adminsim.utils.common_utils import exponential_backoff
+from h_adminsim.utils.image_preprocess_utils import *
+
+
+########### For langchain integration (currently not used) ############
+# from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_core.prompts import ChatPromptTemplate
+# from langchain_core.output_parsers import JsonOutputParser
+# from h_adminsim.registry import ScheduleModel
+#######################################################################
 
 
 
 class GeminiClient:
-    def __init__(self, model: str):
+    def __init__(self, model: str, api_key: Optional[str] = None):
+        # Iniitialize
         self.model = model
-        self._init_environment()
+        self._init_environment(api_key)
         self.histories = list()
         self.token_usages = dict()
 
 
-    def _init_environment(self):
+    def _init_environment(self, api_key: Optional[str] = None) -> None:
         """
         Initialize Goolge GCP Gemini client.
+
+        Args:
+            api_key (Optional[str]): API key for OpenAI. If not provided, it will
+                                     be loaded from environment variables.
         """
-        load_dotenv(override=True)
-        self.client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY", None))
+        if not api_key:
+            load_dotenv(override=True)
+            api_key = os.environ.get("GOOGLE_API_KEY", None)
+        self.client = genai.Client(api_key=api_key)
 
 
     def reset_history(self, verbose: bool = True) -> None:
@@ -118,7 +129,7 @@ class GeminiClient:
 
             # System prompt and model response, including handling None cases
             count = 0
-            retry_count = kwargs.get('retry_count', 5)
+            max_retry = kwargs.get('max_retry', 5)
             while 1:
                 response = self.client.models.generate_content(
                     model=self.model,
@@ -136,7 +147,7 @@ class GeminiClient:
                     self.token_usages.setdefault("total_tokens", []).append(response.usage_metadata.total_token_count)
 
                 # After the maximum retries
-                if count >= retry_count:
+                if count >= max_retry:
                     replace_text = 'None'
                     self.histories.append(types.Content(role='model', parts=[types.Part.from_text(text=replace_text)]))
                     return replace_text
@@ -158,40 +169,40 @@ class GeminiClient:
 
 
 
-class GeminiLangChainClient(GeminiClient):
-    def __init__(self, model: str):
-        super(GeminiLangChainClient, self).__init__(model)
-        self.client_lc = ChatGoogleGenerativeAI(
-            model=self.model,
-            api_key=self.client._api_client.api_key
-        )
+# class GeminiLangChainClient(GeminiClient):
+#     def __init__(self, model: str):
+#         super(GeminiLangChainClient, self).__init__(model)
+#         self.client_lc = ChatGoogleGenerativeAI(
+#             model=self.model,
+#             api_key=self.client._api_client.api_key
+#         )
 
     
-    def __call__(self,
-                 user_prompt: str,
-                 system_prompt: Optional[str] = None,
-                 image_path: Optional[str] = None,
-                 image_size: Optional[Tuple[int]] = None,
-                 using_multi_turn: bool = False,
-                 **kwargs) -> str:
-        try:
-            # To ensure empty history
-            self.reset_history()
+#     def __call__(self,
+#                  user_prompt: str,
+#                  system_prompt: Optional[str] = None,
+#                  image_path: Optional[str] = None,
+#                  image_size: Optional[Tuple[int]] = None,
+#                  using_multi_turn: bool = False,
+#                  **kwargs) -> str:
+#         try:
+#             # To ensure empty history
+#             self.reset_history()
 
-            # Prompts
-            parser = JsonOutputParser(pydantic_object=ScheduleModel)
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    ('system', system_prompt),
-                    ('human', user_prompt)
-                ]
-            ).partial(format_instructions=parser.get_format_instructions())
-            chain = prompt | self.client_lc | parser
+#             # Prompts
+#             parser = JsonOutputParser(pydantic_object=ScheduleModel)
+#             prompt = ChatPromptTemplate.from_messages(
+#                 [
+#                     ('system', system_prompt),
+#                     ('human', user_prompt)
+#                 ]
+#             ).partial(format_instructions=parser.get_format_instructions())
+#             chain = prompt | self.client_lc | parser
             
-            # Model response
-            response = chain.invoke(kwargs)
+#             # Model response
+#             response = chain.invoke(kwargs)
 
-            return response
+#             return response
         
-        except Exception as e:
-            raise e
+#         except Exception as e:
+#             raise e
