@@ -2,6 +2,7 @@ import os
 from tqdm import tqdm
 from typing import Optional
 from decimal import getcontext
+from importlib import resources
 
 from h_adminsim.utils.fhir_utils import *
 from h_adminsim.utils.random_utils import generate_random_symptom
@@ -20,15 +21,14 @@ class AgentDataBuilder:
     @staticmethod
     def build(data: dict, 
               save_path: Optional[str] = None, 
-              symptom_file_path: str = './asset/departments/symptom.json') -> dict:
+              symptom_file_path: Optional[str] = None) -> dict:
         """
         Build agent test data from a single hospital data entry.
 
         Args:
             data (dict): Dictionary containing metadata, departments, doctors, and patients.
             save_path (Optional[str], optional): If provided, the generated agent data will be saved to this path.
-            symptom_file_path (str, optional): Path to the JSON file containing symptoms per department.
-                                               Defaults to './asset/departments/symptom.json'.
+            symptom_file_path (str, optional): Path to the JSON file containing symptoms per department. Defaults to None.
 
         Returns:
             dict: A dictionary with the following keys:
@@ -39,6 +39,9 @@ class AgentDataBuilder:
                     - Ground-truth scheduling information.
                     - Agent input (symptom and constraints).
         """
+        if symptom_file_path == None:
+            symptom_file_path = str(resources.files("h_adminsim.assets.departments").joinpath("symptom.json"))
+
         agent_data = {'metadata': data['metadata'], 'department': data['department'], 'doctor': data['doctor'], 'agent_data': []}
         
         for patient, patient_values in data['patient'].items():
@@ -93,19 +96,21 @@ class AgentDataBuilder:
 
     def __call__(self,
                  output_dir: Optional[str] = None, 
-                 symptom_file_path: str = './asset/departments/symptom.json') -> list[dict]:
+                 symptom_file_path: Optional[str] = None) -> list[dict]:
         """
         Generate agent test datasets for all input data files.
 
         Args:
             output_dir (Optional[str], optional): Directory to save the generated agent data files.
                                                   If not provided, files are not saved.
-            symptom_file_path (str, optional): Path to the symptom file used during agent construction.
-                                               Defaults to './asset/departments/symptom.json'.
+            symptom_file_path (Optional[str], optional): Path to the symptom file used during agent construction. Defaults to None.
 
         Returns:
             list[dict]: A list of agent test data dictionaries, one for each processed input file.
         """
+        if symptom_file_path == None:
+            symptom_file_path = str(resources.files("h_adminsim.assets.departments").joinpath("symptom.json"))
+
         os.makedirs(output_dir, exist_ok=True)
         all_agent_data = list()
         
