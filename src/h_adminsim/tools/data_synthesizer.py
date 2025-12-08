@@ -1,10 +1,10 @@
 import os
 import random
 from tqdm import tqdm
+from importlib import resources
 from typing import Optional, Tuple
 from decimal import Decimal, getcontext
 
-import h_adminsim.registry
 from h_adminsim.task.schedule_assign import ScheduleAssigner
 from h_adminsim.utils import Information, log, colorstr
 from h_adminsim.utils.common_utils import *
@@ -279,18 +279,20 @@ class DataSynthesizer:
     
     @staticmethod
     def department_list_generator(department_n: int,
-                                  file_path: Optional[str] = 'asset/departments/department.json') -> list[Tuple[str, str]]:
+                                  file_path: Optional[str] = None) -> list[Tuple[str, str]]:
         """
         Generate a list of department names based on the number of departments.
         
         Args:
             department_n (int): Number of departments to generate.
-            file_path (Optional[str], optional): Path to a file containing department names. If provided, it will be used to load names.
-                                                 Defaults to 'asset/departments/department.json'.
+            file_path (Optional[str], optional): Path to a file containing department names. If provided, it will be used to load names. Defaults to None.
         
         Returns:
             list[Tuple[str, str]]: List of department names and their codes.
         """
+        if file_path == None:
+            file_path = str(resources.files("h_adminsim.assets.departments").joinpath("department.json"))
+
         if file_path:
             if registry.DEPARTMENTS is None:
                 specialty = json_load(file_path)['specialty']
@@ -307,21 +309,26 @@ class DataSynthesizer:
     
     @staticmethod
     def name_list_generator(n: int,
-                            first_name_file_path: str = 'asset/names/firstname.txt', 
-                            last_name_file_path: str = 'asset/names/lastname.txt',
+                            first_name_file_path: Optional[str] = None, 
+                            last_name_file_path: Optional[str] = None,
                             prefix: Optional[str] = None) -> list[str]:
         """
         Generate a list of names.
         
         Args:
             n (int): Number of doctors to generate.
-            first_name_file_path (str, optional): Path to a file containing first names. Defaults to 'asset/names/firstname.txt'.
-            last_name_file_path (str, optional): Path to a file containing last names. Defaults to 'asset/names/lastname.txt'.
+            first_name_file_path (Optional[str], optional): Path to a file containing first names. Defaults to None.
+            last_name_file_path (Optional[str], optional): Path to a file containing last names. Defaults to None.
             prefix (Optional[str], optional): Prefix for to be generated names.
         
         Returns:
             list[str]: List of names.
         """
+        if first_name_file_path == None:
+            first_name_file_path = str(resources.files("h_adminsim.assets.names").joinpath("firstname.txt"))
+        if last_name_file_path == None:
+            last_name_file_path = str(resources.files("h_adminsim.assets.names").joinpath("lastname.txt"))
+
         if prefix != None:
             assert isinstance(prefix, str), log("`prefix` must be a string type", "error")
             names = [f'{prefix}{name}' for name in generate_random_names(n, first_name_file_path, last_name_file_path)]

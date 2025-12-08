@@ -1,5 +1,6 @@
 import uuid
 import random
+from importlib import resources
 from datetime import datetime, timedelta
 from typing import Tuple, Any, Union, Optional
 
@@ -46,19 +47,24 @@ def generate_random_number_string(length: int) -> str:
 
 
 def generate_random_names(n: int,
-                          first_name_file: str = 'asset/names/firstname.txt',
-                          last_name_file: str = 'asset/names/lastname.txt') -> list[str]:
+                          first_name_file: Optional[str] = None,
+                          last_name_file: Optional[str] = None) -> list[str]:
     """
     Generate a list of random names by combining first and last names from specified files.
 
     Args:
         n (int): Number of random names to generate.
-        first_name_file (str, optional): Path to the file containing first names. Defaults to 'asset/names/firstname.txt'.
-        last_name_file (str, optional): Path to the file containing last names. Defaults to 'asset/names/lastname.txt'.
+        first_name_file (Optional[str], optional): Path to the file containing first names. Defaults to None.
+        last_name_file (Optional[str], optional): Path to the file containing last names. Defaults to None.
 
     Returns:
         list[str]: List of randomly generated names in the format "First Last".
     """
+    if first_name_file == None:
+        first_name_file = str(resources.files("h_adminsim.assets.names").joinpath("firstname.txt"))
+    if last_name_file == None:
+        last_name_file = str(resources.files("h_adminsim.assets.names").joinpath("lastname.txt"))
+
     if registry.FIRST_NAMES is None:
         registry.FIRST_NAMES = [word.capitalize() for word in txt_load(first_name_file).split('\n') if word.strip()]
     if registry.LAST_NAMES is None:
@@ -80,18 +86,21 @@ def generate_random_names(n: int,
 
 
 
-def generate_random_address(address_file_path: str = 'asset/country/address.json',
+def generate_random_address(address_file_path: Optional[str] = None,
                             format: str = '{street}, {district}, {city}') -> str:
     """
     Generate random address.
 
     Args:
-        address_file (str, optional): Path to the file containing addresses. Defaults to 'asset/country/address.json'.
+        address_file (Optional[str], optional): Path to the file containing addresses. Defaults to None.
         format (str, optional): Format of the address.
 
     Returns:
         str: Random generated address based on the asset.
     """
+    if address_file_path == None:
+        address_file_path = str(resources.files("h_adminsim.assets.country").joinpath("address.json"))
+
     if registry.ADDRESSES is None:
         registry.ADDRESSES = json_load(address_file_path)
     
@@ -134,7 +143,7 @@ def generate_random_prob(has_schedule_prob: float, coverage_min: float, coverage
 
 
 def generate_random_symptom(department: str, 
-                            symptom_file_path: str = './asset/departments/symptom.json',
+                            symptom_file_path: Optional[str] = None,
                             ensure_unique_department: bool = True,
                             min_n: int = 2,
                             max_n: int = 4,
@@ -144,7 +153,7 @@ def generate_random_symptom(department: str,
 
     Args:
         department (str, optional): A name of hospital department.
-        symptom_file_path (str, optional): A path of pre-defined symptom data. Defaults to './asset/departments/symptom.json'.
+        symptom_file_path (Optional[str], optional): A path of pre-defined symptom data. Defaults to None.
         ensure_unique_department (bool): Ensure that the disease can only be treated in a single medical specialty.
         min_n (int, optional): Minimum number of symptoms to select. Defaults to 2.
         max_n (int, optional): Maximum number of symptoms to select. Defaults to 4.
@@ -155,6 +164,9 @@ def generate_random_symptom(department: str,
             - dict: A randomly selected disease and its associated symptoms for the given department.  
             - str: The string `"{PLACEHOLDER}"` if the department is not found in the data.
     """
+    if symptom_file_path == None:
+        symptom_file_path = str(resources.files("h_adminsim.assets.departments").joinpath("symptom.json"))
+
     if registry.SYMPTOM_MAP is None:
         registry.SYMPTOM_MAP = json_load(symptom_file_path)
     
@@ -184,7 +196,7 @@ def generate_random_symptom(department: str,
 def generate_random_telecom(min_length: int = 8, 
                             max_length: int = 13,
                             country_code: str = 'KR',
-                            country_to_dial_map_file: str = 'asset/country/country_code.json') -> str:
+                            country_to_dial_map_file: Optional[str] = None) -> str:
     """
     Generate a random telecom number including the country dialing code.
 
@@ -192,8 +204,7 @@ def generate_random_telecom(min_length: int = 8,
         min_length (int, optional): The minimum length of the subscriber number (excluding country code). Defaults to 8.
         max_length (int, optional): The maximum length of the subscriber number (excluding country code). Defaults to 13.
         country_code (str, optional): The ISO country code to determine the dialing prefix. Default is 'KR' (South Korea).
-        country_to_dial_map_file (str, optional): Path to the JSON file mapping country codes to their dialing prefixes.
-                                                  Defaults to 'asset/country/country_code.json'.
+        country_to_dial_map_file (Optional[str], optional): Path to the JSON file mapping country codes to their dialing prefixes. Defaults to None.
 
     Returns:
         str: A random telecom number string starting with the country dialing code, followed by a random sequence of digits.
@@ -201,6 +212,9 @@ def generate_random_telecom(min_length: int = 8,
     Raises:
         KeyError: If the provided country_code is not found in the dialing code registry.
     """
+    if country_to_dial_map_file == None:
+        country_to_dial_map_file = str(resources.files("h_adminsim.assets.country").joinpath("country_code.json"))
+
     if registry.TELECOM_COUNTRY_CODE is None:
         registry.TELECOM_COUNTRY_CODE = json_load(country_to_dial_map_file)
     
@@ -312,15 +326,14 @@ def generate_random_code_with_prob(codes: list[Any],
 
 
 def generate_random_specialty(department: str, 
-                              specialty_path: str = 'asset/departments/department.json', 
+                              specialty_path: Optional[str] = None, 
                               verbose: bool = True) -> Tuple[str, str]:
     """
     Generate a random specialty and its corresponding code for a given department.
 
     Args:
         department (str): The name of the department to look up specialties for.
-        specialty_path (str, optional): Path to the JSON file containing department-specialty mappings.
-                                        Defaults to 'asset/departments/department.json'.
+        specialty_path (Optional[str], optional): Path to the JSON file containing department-specialty mappings. Defaults to None.
         verbose (bool, optional): Whether to log a warning message if the department is not found.
                                   Defaults to True.
 
@@ -328,6 +341,9 @@ def generate_random_specialty(department: str,
         Tuple[str, str]: A tuple containing a randomly selected specialty (str) and its code (int).
                          If the department is not found, returns ('{PLACEHOLDER}', '{PLACEHOLDER}').
     """
+    if specialty_path == None:
+        specialty_path = str(resources.files("h_adminsim.assets.departments").joinpath("department.json"))
+
     if registry.SPECIALTIES is None:
         department_data = json_load(specialty_path)['specialty']
         registry.SPECIALTIES = {k2: {'code': v2['code'], 'field': v2['field']} for v1 in department_data.values() for k2, v2 in v1['subspecialty'].items()}
