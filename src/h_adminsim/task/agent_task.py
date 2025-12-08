@@ -473,7 +473,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                  schedule_cancellation_prob: float = 0.05,
                  request_early_schedule_prob: float = 0.1,
                  max_feedback_number: int = 5,
-                 integration_with_fhir: bool = False,
+                 fhir_integration: bool = False,
                  max_retries: int = 8):
         
         # Initialize variables
@@ -508,7 +508,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         self.request_early_schedule_prob = request_early_schedule_prob
 
         # Others
-        self.integration_with_fhir = integration_with_fhir
+        self.fhir_integration = fhir_integration
         self.max_retries = max_retries
         self.tool_calling_system_prompt = txt_load(str(resources.files("h_adminsim.assets.prompts").joinpath('schedule_tool_calling_system.txt'))) \
             if self.scheduling_strategy == 'tool_calling' else None
@@ -855,7 +855,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             schedule_list = doctor_information[doctor]['schedule'][date]
             schedule_list.remove(time)
 
-            if self.integration_with_fhir:
+            if self.fhir_integration:
                 fhir_appointment = self._get_fhir_appointment(data={'metadata': deepcopy(self._metadata),
                                                                     'department': deepcopy(self._department_data),
                                                                     'information': deepcopy(cancelled_schedule)})
@@ -1161,7 +1161,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         """
         # POST/PUT to FHIR
         fhir_patient, fhir_appointment = None, None
-        if status and self.integration_with_fhir:
+        if status and self.fhir_integration:
             # Even if a failure occurs during a later API tasks, update the FHIR resources to ensure continued scheduling task 
             if test_data and department:
                 fhir_patient = DataConverter.data_to_patient(
@@ -1212,7 +1212,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         self._END_HOUR = self._metadata.get('time').get('end_hour')
         self._TIME_UNIT = self._metadata.get('time').get('interval_hour')
         self._DAY = self._metadata.get('days')
-        doctor_information = environment.doctor_info_from_fhir() if self.integration_with_fhir else agent_test_data.get('doctor')
+        doctor_information = environment.doctor_info_from_fhir() if self.fhir_integration else agent_test_data.get('doctor')
         department, sanity = self.__extract_department(gt, agent_results, doctor_information)
         self.rules = SchedulingRule(self._metadata, environment)
 
