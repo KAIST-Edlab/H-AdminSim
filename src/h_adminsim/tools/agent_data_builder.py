@@ -114,7 +114,7 @@ class AgentDataBuilder:
         os.makedirs(output_dir, exist_ok=True)
         all_agent_data = list()
         
-        for data_file in tqdm(self.data_files, desc='Generating..'):
+        for data_file in tqdm(self.data_files, desc='Generating data for agent simulation..'):
             data = json_load(data_file)
             basename, ext = os.path.splitext(os.path.basename(data_file))
             agent_data = AgentDataBuilder.build(data, os.path.join(output_dir, f"{basename}_agent{ext}"), symptom_file_path)

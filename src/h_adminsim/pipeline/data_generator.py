@@ -7,7 +7,7 @@ from importlib import resources
 from typing import Optional, Union
 
 from h_adminsim.tools import DataSynthesizer, DataConverter, AgentDataBuilder
-from h_adminsim.utils import Information, log
+from h_adminsim.utils import Information, colorstr, log
 
 
 
@@ -18,9 +18,10 @@ class DataGenerator:
         
         # Initialize
         self.config = self.load_config(care_level, config)
-        self.__env_setup(config)
-        self.save_dir = Path(os.path.join(config.project, config.name))
-        self.data_synthesizer = DataSynthesizer(config)
+        self.__env_setup(self.config)
+        self.data_synthesizer = DataSynthesizer(self.config)
+        self.save_dir = self.data_synthesizer._save_dir
+        log(f'Data saving directory: {colorstr(self.save_dir)}')
 
         
     def load_config(self, care_level: str, config: Optional[Union[str, Config]]) -> Config:
@@ -64,7 +65,7 @@ class DataGenerator:
         )
 
 
-    def __env_setup(config: Config) -> None:
+    def __env_setup(self, config: Config) -> None:
         """
         Initialize environment-level random seeds using the given configuration.
 
@@ -88,8 +89,8 @@ class DataGenerator:
             raise e
         
         # FHIR conversion
+        all_resource_list = None
         if convert_to_fhir:
-            all_resource_list = None
             converter = DataConverter(self.config)
             try:
                 all_resource_list = converter(self.save_dir / 'fhir_data', sanity_check)
@@ -99,8 +100,8 @@ class DataGenerator:
                 raise e
             
         # Build data for agent simulation
+        agent_data_list = None
         if build_agent_data:
-            agent_data_list = None
             builder = AgentDataBuilder(self.config)
             try:
                 agent_data_list = builder(self.save_dir / 'agent_data')

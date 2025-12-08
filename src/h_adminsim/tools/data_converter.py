@@ -470,7 +470,7 @@ class DataConverter:
         os.makedirs(output_dir, exist_ok=True)
         all_resources = list()
         
-        for data_file in tqdm(self.data_files, desc='Converting..'):
+        for data_file in tqdm(self.data_files, desc='Converting to FHIR data..'):
             data = json_load(data_file)
             practitioners = DataConverter.data_to_practitioner(data, output_dir, sanity_check)
             practitionerroles = DataConverter.data_to_practitionerrole(data, output_dir, sanity_check)

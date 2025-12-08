@@ -58,7 +58,7 @@ class DataSynthesizer:
         try:
             all_data, all_hospitals = list(), list()
             hospitals = DataSynthesizer.hospital_list_generator(self.config.hospital_data.hospital_n)
-            for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data', total=len(hospitals)):
+            for i, hospital in tqdm(enumerate(hospitals), desc='Synthesizing data..', total=len(hospitals)):
                 data = DataSynthesizer.define_hospital_info(self.config, hospital)
                 hospital_obj = convert_info_to_obj(data) if return_obj else None
                 if sanity_check:
