@@ -18,7 +18,7 @@ include = [
     { path = "src/h_adminsim/assets/departments/*.json", format = "sdist" },
     { path = "src/h_adminsim/assets/departments/*.json", format = "wheel" },
     { path = "src/h_adminsim/assets/country/*.json", format = "sdist" },
-    { path = "src/h_adminsim/assets/country/*.json", format = "wheel" }
+    { path = "src/h_adminsim/assets/country/*.json", format = "wheel" },
     { path = "src/h_adminsim/assets/configs/*.json", format = "sdist" },
     { path = "src/h_adminsim/assets/configs/*.json", format = "wheel" }
 ]
