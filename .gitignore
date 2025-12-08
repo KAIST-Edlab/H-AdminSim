@@ -24,6 +24,8 @@ json*/
 src/crawling
 src/plotting
 results/
+test/
+dist/
 
 # Data and configuration folders
 data/

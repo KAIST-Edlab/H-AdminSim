@@ -2,7 +2,7 @@
   "json.schemas": [
     {
       "fileMatch": ["*fhir*.json"],
-      "url": "./asset/fhir.schema.json"
+      "url": "./src/h_adminsim/assets/fhir.schema.json"
     }
   ]
 }
