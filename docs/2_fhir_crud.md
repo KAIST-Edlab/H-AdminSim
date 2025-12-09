@@ -24,7 +24,7 @@ create_data_path: ./fhir_data  #  Path of data to create. We can set it to indiv
 ### 1. Create
 You can perform create operation using the following command:
 ```bash
-python3 src/run/crud.yaml --config config/crud.yaml --mode create
+python3 src/run/crud.py --config config/crud.yaml --mode create
 ```
 
 &nbsp;
@@ -32,7 +32,7 @@ python3 src/run/crud.yaml --config config/crud.yaml --mode create
 ### 2. Read
 You can perform read operation using the following command:
 ```bash
-python3 src/run/crud.yaml --config config/crud.yaml --mode read --resource_type ${RESOURCE_TYPE} --id ${ID}
+python3 src/run/crud.py --config config/crud.yaml --mode read --resource_type ${RESOURCE_TYPE} --id ${ID}
 ```
 > * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to read (e.g., `Patient`, `Schedule`, etc.).
 > * `${ID}`: Specify the unique identifier of the resource you want to read. This can be a UUID or any other unique string.
@@ -43,7 +43,7 @@ python3 src/run/crud.yaml --config config/crud.yaml --mode read --resource_type 
 ### 3. Update
 You can perform update operation using the following command:
 ```bash
-python3 src/run/crud.yaml --config config/crud.yaml --mode update --resource_type ${RESOURCE_TYPE} --id ${ID} --update_data_path ${UPDATE_DATA_PATH}
+python3 src/run/crud.py --config config/crud.yaml --mode update --resource_type ${RESOURCE_TYPE} --id ${ID} --update_data_path ${UPDATE_DATA_PATH}
 ```
 > * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to update (e.g., `Patient`, `Schedule`, etc.).
 > * `${ID}`: Specify the unique identifier of the resource you want to update. This can be a UUID or any other unique string.
@@ -54,7 +54,7 @@ python3 src/run/crud.yaml --config config/crud.yaml --mode update --resource_typ
 ### 4. Delete
 You can perform delete operation using the following command:
 ```bash
-python3 src/run/crud.yaml --config config/crud.yaml --mode delete --resource_type ${RESOURCE_TYPE} --id ${ID}
+python3 src/run/crud.py --config config/crud.yaml --mode delete --resource_type ${RESOURCE_TYPE} --id ${ID}
 ```
 > * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to delete (e.g., `Patient`, `Schedule`, etc.).
 > * `${ID}`: Specify the unique identifier of the resource you want to delete. This can be a UUID or any other unique string.
@@ -64,7 +64,7 @@ python3 src/run/crud.yaml --config config/crud.yaml --mode delete --resource_typ
 ### 5. Read All
 You can retrieve all resources of a specific resource type even without knowing their individual FHIR IDs:
 ```bash
-python3 src/run/crud.yaml --config config/crud.yaml --mode read_all --resource_type ${RESOURCE_TYPE}
+python3 src/run/crud.py --config config/crud.yaml --mode read_all --resource_type ${RESOURCE_TYPE}
 ```
 > * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to update (e.g., `Patient`, `Schedule`, etc.).
 
@@ -73,7 +73,7 @@ python3 src/run/crud.yaml --config config/crud.yaml --mode read_all --resource_t
 ### 6. Delete All
 You can delete all resources of a specific resource type even without knowing their individual FHIR IDs:
 ```bash
-python3 src/run/crud.yaml --config config/crud.yaml --mode delete_all --resource_type ${RESOURCE_TYPE}
+python3 src/run/crud.py --config config/crud.yaml --mode delete_all --resource_type ${RESOURCE_TYPE}
 ```
 > * `${RESOURCE_TYPE}`: Specify the type of FHIR resource you want to delete (e.g., `Patient`, `Schedule`, etc.).
 
