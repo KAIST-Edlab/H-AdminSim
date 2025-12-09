@@ -3,7 +3,7 @@ import json
 import time
 import random
 from copy import deepcopy
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from importlib import resources
 from decimal import Decimal, getcontext
 from openai import InternalServerError
@@ -495,7 +495,8 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             feedback_mechanism = 'supervisor agent-based feedback' if self.use_supervisor else 'self-feedback'
             log(f'Scheduling strategy: {colorstr(self.scheduling_strategy)}, Feedback mechanism: {colorstr(feedback_mechanism)}, Maximum feedback: {colorstr(self.max_feedback_number)} times')
         else:
-            load_dotenv(override=True)
+            dotenv_path = find_dotenv(usecwd=True)
+            load_dotenv(dotenv_path, override=True)
             self.use_supervisor = False
             self.task_client = admin_staff_agent if self.scheduling_strategy == 'tool_calling' else None
             self.supervisor_client = None
