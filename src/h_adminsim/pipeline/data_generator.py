@@ -1,11 +1,16 @@
+import os
 import random
 import numpy as np
 from sconf import Config
+from pathlib import Path
 from importlib import resources
 from typing import Optional, Union
 
+from h_adminsim.task.fhir_manager import FHIRManager
 from h_adminsim.tools import DataSynthesizer, DataConverter, AgentDataBuilder
 from h_adminsim.utils import Information, colorstr, log
+from h_adminsim.utils.random_utils import random_uuid
+from h_adminsim.utils.filesys_utils import get_files, json_load
 
 
 
@@ -17,6 +22,7 @@ class DataGenerator:
         # Initialize
         self.config = self.load_config(care_level, config)
         self.__env_setup(self.config)
+        self.fhir_url = self.config.get('fhir_url', None)
         self.data_synthesizer = DataSynthesizer(self.config)
         self.save_dir = self.data_synthesizer._save_dir
         log(f'Data saving directory: {colorstr(self.save_dir)}')
@@ -141,3 +147,52 @@ class DataGenerator:
         
         return output
     
+
+    def upload_to_fhir(self,
+                       fhir_data_dir: str,
+                       fhir_url: Optional[str] = None) -> None:
+        """
+        Upload synthesized FHIR resources to the specified FHIR server.
+
+        Args:
+            fhir_data_dir (str):
+                Directory containing FHIR resource JSON files (e.g., practitioner,
+                practitionerrole, schedule, slot).
+            fhir_url (Optional[str], optional):
+                Base URL of the FHIR server. If not provided, the instance's default
+                FHIR URL is used.
+
+        """
+        # Initialize FHIR URL and manager
+        if not fhir_url:
+            fhir_url = self.fhir_url
+        assert fhir_url != None, log('')
+        
+        if not fhir_url.endswith('fhir'):
+            fhir_url = os.path.join(fhir_url, 'fhir')
+
+        fhir_manager = FHIRManager(fhir_url)
+
+        # FHIR resources
+        fhir_data_dir = Path(fhir_data_dir)
+        fhir_resources_dirs = [fhir_data_dir / resource for resource in ['practitioner', 'practitionerrole', 'schedule', 'slot']]
+
+        # Upload resources to FHIR
+        for path in fhir_resources_dirs:
+            files = get_files(path, ext='json')
+            error_files = list()
+
+            for file in files:
+                resource_data = json_load(file)
+                resource_type = resource_data.get('resourceType')
+                if 'id' not in resource_data:
+                    resource_data['id'] = random_uuid(False)
+                
+                response = fhir_manager.create(resource_type, resource_data)
+                if 200 <= response.status_code < 300:
+                    log(f"Created {resource_type} with ID {response.json().get('id')}")
+                else:
+                    error_files.append(file)
+            
+            if len(error_files):
+                log(f'Error files during creating data: {error_files}', 'warning')
