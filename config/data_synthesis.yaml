@@ -2,22 +2,22 @@
 seed: 9999
 
 # FHIR server url
-fhir_url: http://localhost:8080/fhir
+fhir_url: http://localhost:8080/fhir    # Optional: set your FHIR server URL here
 
 # Data configs
 project: ./synthetic_data/
-data_name: hospital_small
+data_name: hospital_small    # Output path: ./synthetic_data/hospital_small/data
 hospital_data:
-    hospital_n: 10
+    hospital_n: 10           # Number of hospitals to synthesize
     start_date:
         min: 2025-03-17      # ISO format: YYYY-MM-DD
-        max: 2025-09-21      # ISO format: YYYY-MM-DD
-    days: 7
-    interval_hour: 0.25
-    start_hour:
+        max: 2025-09-21      
+    days: 7                  # Simulation period (in days)
+    interval_hour: 0.25      # Time unit expressed in hours
+    start_hour:              # Possible hospital opening hours
         min: 9
         max: 10
-    end_hour:
+    end_hour:                # Possible hospital closing hours
         min: 18
         max: 19
     department_per_hospital:
@@ -26,22 +26,22 @@ hospital_data:
     doctor_per_department:
         min: 1
         max: 1
-    working_days:                   # The number of days a doctor can work during the given simulation period, with a random number of days assigned to each doctor.
+    working_days:                   # Number of days each doctor works during the simulation period
         min: 3
         max: 4
     doctor_capacity_per_hour:
         min: 1
         max: 4
-    doctor_has_schedule_prob: 0     # The probability that a doctor has at least one fixed schedule.
-    schedule_coverage_ratio:        # If the doctor has a fixed schedule, the proportion of that schedule relative to the total working hours.
+    doctor_has_schedule_prob: 0     # Probability that a doctor has at least one fixed schedule
+    schedule_coverage_ratio:        # Proportion of fixed schedules relative to total working hours
         min: 0.4
         max: 0.6
-    appointment_coverage_ratio:   # Proportion of appointment time scheduled with patients outside the doctor's fixed schedule.
+    appointment_coverage_ratio:   # Proportion of appointments scheduled outside fixed schedules
         min: 0.2
         max: 0.5
     preference:
-        type: ['asap', 'doctor', 'date']    # Types of patient preferences.
-        probs: [0.4, 0.4, 0.2]           # Types probability distribution.
+        type: ['asap', 'doctor', 'date']    # Types of patient scheduling preferences
+        probs: [0.4, 0.4, 0.2]              # Probability distribution for each preference type
     symptom:
-        type: ['simple', 'with_history']    # Types of patient history.
-        probs: [0.7, 0.3]                   # Types probability distribution.
+        type: ['simple', 'with_history']    # 'simple' = no referral; 'with_history' = referral case
+        probs: [0.7, 0.3]                   # Probability distribution for symptom types
