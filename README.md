@@ -114,8 +114,51 @@ OPENAI_API_KEY=${YOUR_OPENAI_KEY}
 GOOGLE_API_KEY=${YOUR_GEMINI_API_KEY"}
 ```
 
+### Simulation
+```python
+from h_adminsim import AdminStaffAgent, SupervisorAgent
+from h_adminsim.pipeline import DataGenerator, Simulator
+from h_adminsim.task.agent_task import OutpatientFirstIntake, OutpatientFirstScheduling
+
+data_generator = DataGenerator()
+data_generator.build(convert_to_fhir=True)
+agent_data_dir = data_generator.save_dir / 'agent_data'
+output_dir = data_generator.save_dir / 'simulation_results'
+
+# Intake task
+intake_task = OutpatientFirstIntake(
+    patient_model='gpt-5-nano',
+    admin_staff_model='gpt-5-nano',
+)
+
+# Scheduling task
+admin_staff_agent = AdminStaffAgent(
+    target_task='first_outpatient_scheduling',
+    model='gpt-5-mini',
+)
+scheduling_task = OutpatientFirstScheduling(
+    scheduling_strategy='llm',
+    admin_staff_agent=admin_staff_agent,
+)
+
+# Simulation
+simulator = Simulator(
+    intake_task=intake_task,
+    scheduling_task=scheduling_task,
+)
+simulator.run(
+    simulation_data_path=agent_data_dir,
+    output_dir=output_dir,
+    resume=False,
+    verbose=True
+)
+```
+
 &nbsp;
 
+&nbsp;
+
+## Core Components 📘
 ### Data synthesis
 ```python
 from h_adminsim.pipeline import DataGenerator
