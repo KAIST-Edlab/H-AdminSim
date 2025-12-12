@@ -114,6 +114,8 @@ OPENAI_API_KEY=${YOUR_OPENAI_KEY}
 GOOGLE_API_KEY=${YOUR_GEMINI_API_KEY"}
 ```
 
+&nbsp;
+
 ### Simulation
 ```python
 from h_adminsim import AdminStaffAgent, SupervisorAgent
