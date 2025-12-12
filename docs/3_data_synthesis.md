@@ -11,50 +11,68 @@ We need to complete the `config/data_synthesis.yaml` file.
 seed: 9999
 
 # FHIR server url
-fhir_url: http://localhost:8080/fhir
+fhir_url: http://localhost:8080/fhir    # Optional: set your FHIR server URL here
 
 # Data configs
 project: ./synthetic_data/
-data_name: hospital_easy
+data_name: hospital_small    # Output path: ./synthetic_data/hospital_small/data
 hospital_data:
-    hospital_n: 10000
-    interval_hour: 0.5
-    start_hour:
-        min: 6
-        max: 8
-    end_hour:
+    hospital_n: 10           # Number of hospitals to synthesize
+    start_date:
+        min: 2025-03-17      # ISO format: YYYY-MM-DD
+        max: 2025-09-21      
+    days: 7                  # Simulation period (in days)
+    interval_hour: 0.25      # Time unit expressed in hours
+    start_hour:              # Possible hospital opening hours
+        min: 9
+        max: 10
+    end_hour:                # Possible hospital closing hours
         min: 18
-        max: 20
+        max: 19
     department_per_hospital:
-        min: 2
-        max: 5    
+        min: 7
+        max: 9
     doctor_per_department:
         min: 1
-        max: 5
-    doctor_has_schedule_prob: 0.3   # The probability that a doctor has at least one fixed schedule.
-    schedule_coverage_ratio:        # If the doctor has a fixed schedule, the proportion of that schedule relative to the total working hours.
-        min: 0.01
-        max: 0.2
-    appointment_coverage_ratio:   # Proportion of appointment time scheduled with patients outside the doctor's fixed schedule.
-        max_chunk_size: 4         # Maximum number of consecutive segments per appointment (e.g., max duration = interval_hour * max_chunk_size).
-        min: 0.9
-        max: 1.0
-    priority_distribution: [0.1, 0.2, 0.7]  # Probability distribution over patient priority levels. For example, [0.2, 0.4, 0.4] means 20% chance of priority 0, 40% chance of priority 1, and 40% chance of priority 2.
-    priority_flexibility_prob: [0, 0.5, 0.9]   # Probability that each priority level is *flexible* rather than *fixed*. For example, [0, 0.5, 0.9] means priority 0 is always fixed, priority 1 has a 50% chance to be flexible, and priority 2 has a 90% chance to be flexible.
+        max: 1
+    working_days:                   # Number of days each doctor works during the simulation period
+        min: 3
+        max: 4
+    doctor_capacity_per_hour:
+        min: 1
+        max: 4
+    doctor_has_schedule_prob: 0     # Probability that a doctor has at least one fixed schedule
+    schedule_coverage_ratio:        # Proportion of fixed schedules relative to total working hours
+        min: 0.4
+        max: 0.6
+    appointment_coverage_ratio:   # Proportion of appointments scheduled outside fixed schedules
+        min: 0.2
+        max: 0.5
+    preference:
+        type: ['asap', 'doctor', 'date']    # Types of patient scheduling preferences
+        probs: [0.4, 0.4, 0.2]              # Probability distribution for each preference type
+    symptom:
+        type: ['simple', 'with_history']    # 'simple' = no referral; 'with_history' = referral case
+        probs: [0.7, 0.3]                   # Probability distribution for symptom types
 ```
-> * `project`, `data_name`: The generated data will be saved to the path `${project}/${data_name}`. This path is generated automatically, so you don't need to create it manually.
-> * `hospital_n`: Number of hosptial data you want to generate.
-> * `interval_hour`: The defualt time unit in the gnerated data. It is applied to time-related items such as schedules.
-> * `start_hour`: Hospital opening time.
-> * `end_hour`: Hospital closing time.
-> * `department_per_hospital`: Number of departments in the hospital
-> * `doctor_per_department`: Number of doctors in each department.
-> * `doctor_has_schedule_prob`: Probability that doctors have at least one fixed schedule other than patient appointments.
-> * `schedule_coverage_ratio`: When doctors have at least one fixed schedule, the proportion of their working hours occupied by these fixed schedules.
-> * `appointment_coverage_ratio`: Among doctors' available hours excluding fixed schedules, the proportion allocated to patient appointments.
-> * `max_chunk_size`: Maximum duration of an individual patient appointment (e.g., max duration = interval_hour * max_chunk_size).
-> * `priority`: Probability distribution over patient priority levels. For example, [0.2, 0.4, 0.4] means 20% chance of priority 0, 40% chance of priority 1, and 40% chance of priority 2.
-> * `priority_flexibility_prob`: Probability that each priority level is *flexible* rather than *fixed*. For example, [0, 0.5, 0.9] means priority 0 is always fixed, priority 1 has a 50% chance to be flexible, and priority 2 has a 90% chance to be flexible.
+>* `project`, `data_name`: The generated data will be saved to the path ${project}/${data_name}. This directory is created automatically, so manual setup is not required.
+>* `hospital_n`: Number of hospitals to generate synthetic data for.
+>* `start_date`: The possible starting date range (min/max) used to randomly sample the beginning of the simulation period.
+>* `days`: Number of days included in the simulation window.
+>* `interval_hour`: The default time resolution of schedules. All time-related elements (appointments, schedules, availability blocks) are expressed as multiples of interval_hour.
+>* `start_hour`: Possible hospital opening time range (min/max). Actual opening time is sampled per hospital.
+>* `end_hour`: Possible hospital closing time range (min/max). Actual closing time is sampled per hospital.
+>* `department_per_hospital`: Number of medical departments assigned to each hospital (sampled between min/max).
+>* `doctor_per_department`: Number of doctors assigned to each department (sampled between min/max).
+>* `working_days`: Number of working days each doctor is assigned within the simulation period (sampled between min/max).
+>* `doctor_capacity_per_hour`: Number of patients a doctor can see per hour (sampled between min/max).
+>* `doctor_has_schedule_prob`: Probability that a doctor has at least one fixed schedule block (e.g., meeting, break, specialized clinic) independent of patient appointments.
+>* `schedule_coverage_ratio`: If a doctor has fixed schedules, the proportion of their total working hours that these fixed schedules occupy.
+>* `appointment_coverage_ratio`: Among the doctor’s free hours excluding fixed schedules, the proportion allocated to pre-scheduled patient appointments.
+>* `preference`.`type`: Available patient scheduling preference types (asap, doctor, date).
+>* `preference`.`probs`: Probability distribution over scheduling preference types.
+>* `symptom`.`type`: Symptom categories (simple = no referral, with_history = referral case).
+>* `symptom`.`probs`: Probability distribution over symptom types.
 
 
 &nbsp;
