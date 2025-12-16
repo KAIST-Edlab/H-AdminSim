@@ -1,6 +1,0 @@
-# Uvicorn
-host: 127.0.0.1
-port: 8501
-
-# LLM model
-model: gemini-2.5-flash-preview-05-20
