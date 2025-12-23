@@ -139,6 +139,7 @@ admin_staff_agent = AdminStaffAgent(
     model='gpt-5-mini',
 )
 scheduling_task = OutpatientFirstScheduling(
+    patient_model='gpt-5-nano',
     scheduling_strategy='llm',
     admin_staff_agent=admin_staff_agent,
 )
@@ -305,6 +306,7 @@ admin_staff_agent = AdminStaffAgent(
     model='gpt-5-mini',
 )
 scheduling_task = OutpatientFirstScheduling(
+    patient_model='gpt-5-nano',
     scheduling_strategy='llm',
     admin_staff_agent=admin_staff_agent,
     supervisor_agent=None,
@@ -327,6 +329,7 @@ admin_staff_agent = AdminStaffAgent(
     api_key=${YOUR_API_KEY},  # You may set the API key here instead of using a .env file
 )
 scheduling_task = OutpatientFirstScheduling(
+    patient_model='gpt-5-nano',
     scheduling_strategy='llm',
     admin_staff_agent=admin_staff_agent,
     supervisor_agent=supervisor_agent,
@@ -343,6 +346,7 @@ admin_staff_agent = AdminStaffAgent(
     model='gpt-5-mini',
 )
 scheduling_task = OutpatientFirstScheduling(
+    patient_model='gpt-5-nano',
     scheduling_strategy='llm',
     admin_staff_agent=admin_staff_agent,
     supervisor_agent=None,
@@ -367,6 +371,7 @@ admin_staff_agent = AdminStaffAgent(
     vllm_endpoint='http://0.0.0.0:8000',  # vLLM server endpoint
 )
 scheduling_task = OutpatientFirstScheduling(
+    patient_model='gpt-5-nano',
     scheduling_strategy='llm',
     admin_staff_agent=admin_staff_agent,
     supervisor_agent=supervisor_agent,
@@ -388,6 +393,7 @@ admin_staff_agent = AdminStaffAgent(
 # - "tool_calling": tool-based scheduling via LLM tool calls
 # - "rule": rule-based / heuristic scheduling baseline
 scheduling_task = OutpatientFirstScheduling(
+    patient_model='gpt-5-nano',
     scheduling_strategy='tool_calling',      
     admin_staff_agent=admin_staff_agent,
     supervisor_agent=None,

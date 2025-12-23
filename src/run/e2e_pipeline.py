@@ -96,6 +96,7 @@ def main(args):
             vllm_endpoint = s_config.vllm_url if use_admin_vllm else None
         )
         scheduling_task = OutpatientFirstScheduling(
+            patient_model=s_config.task_model,
             scheduling_strategy=s_config.schedule_task.scheduling_strategy,
             admin_staff_agent=admin_staff_agent,
             supervisor_agent=supervisor_agent if s_config.schedule_task.use_supervisor else None,

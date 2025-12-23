@@ -111,7 +111,6 @@ def main(args):
             admin_staff_model=config.task_model,
             supervisor_agent=supervisor_agent if config.outpatient_intake.use_supervisor else None,
             intake_max_inference=config.intake_max_inference,
-            admin_staff_last_task_user_prompt_path=config.outpatient_intake.staff_task_user_prompt,
         ))
         # queue.append(OutpatientIntake(config))
     if 'schedule' in args.type:
@@ -130,6 +129,7 @@ def main(args):
             vllm_endpoint = config.vllm_url if use_admin_vllm else None
         )
         queue.append(OutpatientFirstScheduling(
+            patient_model=config.task_model,
             scheduling_strategy=config.schedule_task.scheduling_strategy,
             admin_staff_agent=admin_staff_agent,
             supervisor_agent=supervisor_agent if config.schedule_task.use_supervisor else None,
