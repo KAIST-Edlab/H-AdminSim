@@ -33,6 +33,14 @@ from h_adminsim.utils.common_utils import (
 
 
 class FirstVisitOutpatientTask:
+    def __init__(self):
+        self.token_stats = {
+            'patient_token': {'input':[], 'output': [], 'reasoning': []}, 
+            'admin_staff_token': {'input': [], 'output': [], 'reasoning': []}, 
+            'supervisor_token': {'input':[], 'output': [], 'reasoning': []}
+        }
+
+
     def get_result_dict(self) -> dict:
         """
         Initialize result dictionary.
@@ -63,6 +71,37 @@ class FirstVisitOutpatientTask:
                 )
                 time.sleep(wait_time)
                 retry_count += 1
+
+    
+    def save_token_data(self, 
+                        patient_token: Optional[dict] = None, 
+                        admin_staff_token: Optional[dict] = None, 
+                        supervisor_token: Optional[dict] = None):
+        """
+        Save the API token usage data
+
+        Args:
+            patient_token (Optional[dict], optional): Patient token information. Defaults to None.
+            admin_staff_token (Optional[dict], optional): Administration staff token information. Defaults to None.
+            supervisor_token (Optional[dict], optional): Supervisor token information. Defaults to None.
+        """
+        if patient_token:
+            self.token_stats['patient_token']['input'].extend(patient_token['prompt_tokens'])
+            self.token_stats['patient_token']['output'].extend(patient_token['completion_tokens'])
+            if 'reasoning_tokens' in patient_token:
+                self.token_stats['patient_token']['reasoning'].extend(patient_token['reasoning_tokens'])
+
+        if admin_staff_token:
+            self.token_stats['admin_staff_token']['input'].extend(admin_staff_token['prompt_tokens'])
+            self.token_stats['admin_staff_token']['output'].extend(admin_staff_token['completion_tokens'])
+            if 'reasoning_tokens' in admin_staff_token:
+                self.token_stats['admin_staff_token']['reasoning'].extend(admin_staff_token['reasoning_tokens'])
+
+        if supervisor_token:
+            self.token_stats['supervisor_token']['input'].extend(supervisor_token['prompt_tokens'])
+            self.token_stats['supervisor_token']['output'].extend(supervisor_token['completion_tokens'])
+            if 'reasoning_tokens' in supervisor_token:
+                self.token_stats['supervisor_token']['reasoning'].extend(supervisor_token['reasoning_tokens'])
     
 
     def _get_fhir_appointment(self,
@@ -138,6 +177,7 @@ class OutpatientFirstIntake(FirstVisitOutpatientTask):
                  admin_staff_last_task_user_prompt_path: Optional[str] = None,
                  patient_vllm_endpoint: Optional[str] = None,
                  admin_staff_vllm_endpoint: Optional[str] = None):
+        super().__init__()
         
         # Initialize variables
         self.name = 'intake'
@@ -151,11 +191,6 @@ class OutpatientFirstIntake(FirstVisitOutpatientTask):
         self.max_inferences = intake_max_inference
         self.max_retries = max_retries
         self._init_last_task_prompt(admin_staff_last_task_user_prompt_path)
-        self.token_stats = {
-            'patient_token': {'input':[], 'output': [], 'reasoning': []}, 
-            'admin_staff_token': {'input': [], 'output': [], 'reasoning': []}, 
-            'supervisor_token': {'input':[], 'output': [], 'reasoning': []}
-        }
         self.patient_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.patient_model.lower() else {}
         self.staff_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.admin_staff_model.lower() else {}
         log(f'Patient intake tasks are conducted by {colorstr(task_mechanism)}')
@@ -238,34 +273,6 @@ class OutpatientFirstIntake(FirstVisitOutpatientTask):
             return text_dict
         except:
             return str(text)
-        
-    
-    def save_token_data(self, patient_token: dict, admin_staff_token: dict, supervisor_token: dict):
-        """
-        Save the API token usage data
-
-        Args:
-            patient_token (dict): Patient token information.
-            admin_staff_token (dict): Administration staff token information.
-            supervisor_token (dict): Supervisor token information.
-        """
-        if patient_token:
-            self.token_stats['patient_token']['input'].extend(patient_token['prompt_tokens'])
-            self.token_stats['patient_token']['output'].extend(patient_token['completion_tokens'])
-            if 'reasoning_tokens' in patient_token:
-                self.token_stats['patient_token']['reasoning'].extend(patient_token['reasoning_tokens'])
-
-        if admin_staff_token:
-            self.token_stats['admin_staff_token']['input'].extend(admin_staff_token['prompt_tokens'])
-            self.token_stats['admin_staff_token']['output'].extend(admin_staff_token['completion_tokens'])
-            if 'reasoning_tokens' in admin_staff_token:
-                self.token_stats['admin_staff_token']['reasoning'].extend(admin_staff_token['reasoning_tokens'])
-
-        if supervisor_token:
-            self.token_stats['supervisor_token']['input'].extend(supervisor_token['prompt_tokens'])
-            self.token_stats['supervisor_token']['output'].extend(supervisor_token['completion_tokens'])
-            if 'reasoning_tokens' in supervisor_token:
-                self.token_stats['supervisor_token']['reasoning'].extend(supervisor_token['reasoning_tokens'])
         
     
     def _department_decision(self, prediction_department: str, prediction_supervison: Union[str, dict], gt_department: str) -> Tuple[str, list[str]]:
@@ -509,7 +516,8 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                  max_retries: int = 8,
                  patient_vllm_endpoint: Optional[str] = None,
                  admin_staff_vllm_endpoint: Optional[str] = None):
-        
+        super().__init__()
+
         # Initialize variables
         getcontext().prec = 10
         self.name = 'schedule'
@@ -524,7 +532,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             log('Scheduling strategy must be either "llm", "tool_calling", or "rule".', 'error')
         
         # Initialize scheduling methods
-        self.task_client = SchedulingAdminStaffAgent(
+        self.admin_staff_agent = SchedulingAdminStaffAgent(
             target_task='first_outpatient_scheduling',
             model=self.admin_staff_model,
             use_vllm=self.admin_staff_use_vllm,
@@ -569,10 +577,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             'doctor': 'The patient has a preferred doctor for the outpatient visit.',
             'date': 'The patient wants the earliest available doctor in the department for the outpatient visit, starting from **{date}**.'
         }
-        self.token_stats = {
-            'task_token': {'input':[], 'output': [], 'reasoning': []}, 
-            'supervisor_token': {'input':[], 'output': [], 'reasoning': []}
-        }
+        self.schedule_suggestion_desc = "How about this scehdule: {schedule}"
 
     
     @staticmethod
@@ -611,27 +616,6 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         except:
             return str(text)
     
-
-    def save_token_data(self, task_token: dict, supervisor_token: dict):
-        """
-        Save the API token usage data
-
-        Args:
-            task_token (dict): Patient token information.
-            supervisor_token (dict): Administration staff token information.
-        """
-        if task_token:
-            self.token_stats['task_token']['input'].extend(task_token['prompt_tokens'])
-            self.token_stats['task_token']['output'].extend(task_token['completion_tokens'])
-            if 'reasoning_tokens' in task_token:
-                self.token_stats['task_token']['reasoning'].extend(task_token['reasoning_tokens'])
-
-        if supervisor_token:
-            self.token_stats['supervisor_token']['input'].extend(supervisor_token['prompt_tokens'])
-            self.token_stats['supervisor_token']['output'].extend(supervisor_token['completion_tokens'])
-            if 'reasoning_tokens' in supervisor_token:
-                self.token_stats['supervisor_token']['reasoning'].extend(supervisor_token['reasoning_tokens'])
-
 
     def __init_patient_agent(self, 
                              patient_condition: dict,
@@ -1127,7 +1111,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                 filtered_doctor_information = self.__filter_doctor_schedule(doctor_information, department, environment, True)
                 preference_desc = self.preference_phrase_staff[patient_condition.get('preference')] if patient_condition.get('preference') != 'date' \
                     else self.preference_phrase_staff[patient_condition.get('preference')].format(date=patient_condition.get('valid_from'))
-                user_prompt = self.task_client.scheduling_user_prompt_template.format(
+                user_prompt = self.admin_staff_agent.scheduling_user_prompt_template.format(
                     START_HOUR=self._START_HOUR,
                     END_HOUR=self._END_HOUR,
                     TIME_UNIT=self._TIME_UNIT,
@@ -1142,7 +1126,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                     FEEDBACK= feedback,
                 )
                 prediction = self.run_with_retry(
-                    self.task_client,
+                    self.admin_staff_agent,
                     user_prompt,
                     using_multi_turn=self.max_feedback_number > 0,
                     verbose=False,
@@ -1185,10 +1169,10 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
 
             # Append token data and reset agents
             self.save_token_data(
-                self.task_client.client.token_usages, 
+                admin_staff_token=self.admin_staff_agent.client.token_usages, 
                 supervisor_token=self.supervisor_client.client.token_usages if self.use_supervisor else None
             )
-            self.task_client.reset_history(verbose=False)
+            self.admin_staff_agent.reset_history(verbose=False)
             if self.use_supervisor:
                 self.supervisor_client.reset_history(verbose=False)
             
@@ -1215,7 +1199,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         
         ############################# Tool calling-based Scheduling ############################
         else:
-            self.client = self.task_client.build_agent(self.rules, self.__filter_doctor_schedule(doctor_information, department, environment))
+            self.client = self.admin_staff_agent.build_agent(self.rules, self.__filter_doctor_schedule(doctor_information, department, environment))
             prediction = scheduling_tool_calling(self.client, self.rules, patient_condition, doctor_information)
             
             status, status_code, prediction, doctor_information = self._sanity_check(
@@ -1234,9 +1218,24 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         return status, status_code, prediction, doctor_information, trial, feedback_msg
     
 
-    def get_intention(self, patient_condition: dict, 
+    def get_intention(self, 
+                      patient_condition: dict, 
                       rejected_preference: Optional[str] = None,
-                      rejected_prediction: Optional[dict] = None) -> Tuple[bool, str, str]:
+                      rejected_schedule: Optional[dict] = None) -> Tuple[bool, str, str]:
+        """
+        Get patient's scheduling preferences fron conversation.
+
+        Args:
+            patient_condition (dict): Patient characteristics, including the ground-truth scheduling preference.
+            rejected_preference (Optional[str], optional): Scheduling preference rejected in the previous turn.
+            rejected_schedule (Optional[dict], optional): Scheduling proposal previously suggested by the staff and rejected by the patient.
+
+        Returns:
+            Tuple[bool, str, str]:
+                - bool: Whether the predicted intention matches the patient's ground-truth preference.
+                - str: Status code indicating the outcome (e.g., correct or intention error).
+                - str: The predicted scheduling intention (lowercased).
+        """
         if rejected_preference:
             rejected_preference_desc = self.preference_phrase_staff[rejected_preference] if rejected_preference != 'date' \
                     else self.preference_phrase_staff[rejected_preference].format(date='a specific date')
@@ -1245,7 +1244,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                 self.patient_rejected_system_prompt_path,
                 rejected_preference=rejected_preference_desc
             )
-            user_prompt = f"How about this scehdule: {rejected_prediction}"
+            user_prompt = self.schedule_suggestion_desc.format(schedule=rejected_schedule)
         else:
             self.patient_agent = self.__init_patient_agent(
                 patient_condition, 
@@ -1268,11 +1267,22 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         log(f"{role:<25}: {response}")
 
         # Intention prediction from response by the staff
-        prediction = self.task_client(
-            self.task_client.intention_user_prompt_template.format(preference=response),
-            False,
-            False
+        prediction = self.run_with_retry(
+            self.admin_staff_agent,
+            self.admin_staff_agent.intention_user_prompt_template.format(preference=response),
+            using_multi_turn=False,
+            verbose=False,
+            max_retries=self.max_retries,
         )
+
+        # Save token data and reset the staff agent
+        self.save_token_data(
+            patient_token=self.patient_agent.client.token_usages,
+            admin_staff_token=self.admin_staff_agent.client.token_usages, 
+        )
+
+        # Reset the staff agent history for the scheduling task
+        self.admin_staff_agent.reset_history(verbose=False)
         
         # Evaluate the intention prediction
         status = patient_condition['preference'].lower() == prediction.lower()
@@ -1387,7 +1397,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             status, status_code, prediction = self.get_intention(
                 patient_condition=patient_condition,
                 rejected_preference=None if i == 0 else preferences[i-1],
-                rejected_prediction=None if i == 0 else prediction,
+                rejected_schedule=None if i == 0 else prediction,
             )
             if not status:
                 trial, feedback_msg = list(), list()
@@ -1414,7 +1424,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         if verbose:
             if status:
                 role = f"{colorstr('blue', 'Staff')}"
-                log(f"{role:<25}: How about this scehdule: {prediction}")
+                log(f"{role:<25}: {self.schedule_suggestion_desc.format(schedule=prediction)}")
                 role = f"{colorstr('green', 'Patient')} ({patient_condition['preference']})"
                 log(f"{role:<25}: Thank you.")
             log(f'Final Status: {status_code}\n\n\n')   
