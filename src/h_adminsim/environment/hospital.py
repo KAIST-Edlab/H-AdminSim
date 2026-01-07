@@ -1,20 +1,25 @@
 import time
 import random
+from copy import deepcopy
 from decimal import getcontext
 from datetime import timedelta
-from typing import Union, Optional
+from typing import Union, Tuple, Optional
 
 from h_adminsim.task.fhir_manager import FHIRManager
 from h_adminsim.utils import log, colorstr
-from h_adminsim.utils.fhir_utils import convert_fhir_resources_to_doctor_info
+from h_adminsim.utils.fhir_utils import get_all_doctor_info
 from h_adminsim.utils.common_utils import (
+    iso_to_date,
+    iso_to_hour,
     get_iso_time,
+    sort_schedule,
     get_utc_offset,
     str_to_datetime,
     datetime_to_str,
     compare_iso_time,
     exponential_backoff,
     generate_random_iso_time_between,
+    convert_time_list_to_merged_time,
 )
 
 
@@ -79,7 +84,7 @@ class HospitalEnvironment:
         return avg_gap
 
 
-    def doctor_info_from_fhir(self, use_cache: bool = True) -> dict:
+    def get_general_doctor_info_from_fhir(self, use_cache: bool = True) -> dict:
         """
         Build a doctor information dictionary from FHIR resources for simulation.
 
@@ -143,7 +148,7 @@ class HospitalEnvironment:
                 continue
 
         # Convert resources regardless of whether they came from cache or fresh read
-        doctor_information = convert_fhir_resources_to_doctor_info(
+        doctor_information = get_all_doctor_info(
             self._fhir_practitioner_cache,
             self._fhir_practitionerrole_cache,
             self._fhir_schedule_cache,
@@ -152,6 +157,124 @@ class HospitalEnvironment:
             **{'start': self._START_HOUR, 'end': self._END_HOUR, 'interval': self._TIME_UNIT}
         )
         return doctor_information
+    
+
+    def get_doctor_schedule(self,
+                            doctor_information: Optional[dict] = None,
+                            *,
+                            department: Optional[str] = None,
+                            fhir_integration: bool = False,
+                            express_detail: bool = False) -> dict:
+        """
+        Build doctor schedules for a given department.
+
+        Args:
+            doctor_information (Optional[dict], optional): Simulation doctor data (used when fhir_integration is False). Defaults to None.
+            department (Optional[str], optional): Target department name. Defaults to None.
+            fhir_integration (bool, optional): If True, build schedules from FHIR resources. Defaults to False.
+            express_detail (bool, optional): If True, express schedules with explicit start/end fields. Defualtsto False.
+
+        Returns:
+            dict: Filtered doctor scheduling information.
+        """
+        def __build_single_doctor_schedule(practitioner_role: dict) -> Tuple[str, dict]:
+            """
+            Build scheduling information for a single doctor.
+
+            Args:
+                practitioner_role (dict): A FHIR PractitionerRole resource for a doctor, already filtered by department.
+
+            Returns:
+                Tuple[str, dict]: Doctor name and his (or her) information dictionary containing the constructed scheduling information.
+            """
+            schedule, appointments = dict(), list()
+            practitioner_id = practitioner_role['practitioner']['reference']
+            practitioner = self.fhir_manager.read('Practitioner', practitioner_id.split('/')[-1], verbose=False).json()
+            practitioner_schedule_id = self.fhir_manager.read_all('Schedule', params={'actor': practitioner_id}, verbose=False)[0]['resource']['id']
+            fixed_slots = [slot['resource'] for slot in self.fhir_manager.read_all('Slot', params={'schedule': f'Schedule/{practitioner_schedule_id}'}, verbose=False)]
+
+            # Append fixed schedules of a doctor
+            for slot in fixed_slots:
+                date = iso_to_date(slot['start'])
+                schedule.setdefault(date, [])
+                if slot['status'] != 'free':
+                    schedule[date].append([iso_to_hour(slot['start']), iso_to_hour(slot['end'])])
+                
+                # Get all appointments related to this slot
+                appointment_resources = self.fhir_manager.read_all('Appointment', params={'slot': f'Slot/{slot["id"]}'}, verbose=False)
+                if len(appointment_resources) > 0:
+                    appointments.append(appointment_resources[0]['resource'])
+            
+            # Merge fixed schedule times
+            for date, time_list in schedule.items():
+                schedule[date] = convert_time_list_to_merged_time(
+                    time_list=sort_schedule(time_list),
+                    start=self._START_HOUR,
+                    end=self._END_HOUR,
+                    interval=self._TIME_UNIT
+                )
+
+            # Append patient appointments of a doctor
+            for appointment in appointments:
+                date = iso_to_date(appointment['start'])
+                schedule.setdefault(date, [])
+                schedule[date].append([iso_to_hour(appointment['start']), iso_to_hour(appointment['end'])])            
+            
+            # Collect doctor's information
+            name = f"{practitioner['name'][0]['prefix'][0]} {practitioner['name'][0]['given'][0]} {practitioner['name'][0]['family']}"
+            department = practitioner_role['specialty'][0]['text']
+            specialty = {
+                'name': practitioner_role['specialty'][0]['coding'][0]['display'],
+                'code': practitioner_role['specialty'][0]['coding'][0]['code']
+            }
+            capacity_attributes = {attr['text']: attr['coding'][0]['display'] for attr in practitioner_role['characteristic']}
+            workload = f"{round(self.booking_num[name] / int(capacity_attributes['capacity']) * 100, 2)}%"
+            outpatient_duration = 1 / int(capacity_attributes['capacity_per_hour'])
+            information = {
+                'department': department,
+                'specialty': specialty,
+                'schedule': sort_schedule(schedule),
+                'workload': workload,
+                'outpatient_duration': outpatient_duration
+            } 
+            return name, information
+
+        filtered_doctor_information = {'doctor': {}}
+
+        # Get filtered doctor information directly from FHIR
+        if fhir_integration:
+            if self.first_verbose_flag:
+                log('Build doctor information from the FHIR resources..')
+                self.first_verbose_flag = False
+            
+            # Get doctors belonging to the department
+            params={"specialty:text": department}
+            practitioner_roles = [resource['resource'] for resource in self.fhir_manager.read_all('PractitionerRole', params=params, verbose=False)]
+
+            for practitioner_role in practitioner_roles:
+                doctor_name, doctor_schedule = __build_single_doctor_schedule(practitioner_role)
+                filtered_doctor_information['doctor'][doctor_name] = doctor_schedule
+        
+        # Get filtered doctor information from the simulation data
+        else:
+            for k, v in doctor_information.items():
+                if v['department'] == department:
+                    tmp_schedule = deepcopy(v)
+                    del tmp_schedule['capacity_per_hour'], tmp_schedule['capacity'], tmp_schedule['gender'], tmp_schedule['telecom'], tmp_schedule['birthDate']
+                    tmp_schedule['workload'] = f"{round(self.booking_num[k] / v['capacity'] * 100, 2)}%"
+                    tmp_schedule['outpatient_duration'] = 1 / v['capacity_per_hour']
+                    filtered_doctor_information['doctor'][k] = tmp_schedule
+
+
+        # Whether express more details in the built schedules
+        if express_detail:
+            for _, info in filtered_doctor_information['doctor'].items():
+                info['schedule'] = {
+                    date: [{'start': s[0], 'end': s[1]} for s in schedule]
+                    for date, schedule in info['schedule'].items()
+                }
+        
+        return filtered_doctor_information
     
 
     def resume(self, agent_results: dict):

@@ -4,6 +4,7 @@ from typing import Union
 from h_adminsim.utils.common_utils import (
     iso_to_hour,
     iso_to_date,
+    sort_schedule,
     convert_time_list_to_merged_time,
 )
 
@@ -121,11 +122,6 @@ def get_all_doctor_info(practitioners: list[dict],
     Returns:
         dict: Current state of doctoral information. 
     """
-    def __sort_schedule(data: Union[dict, list]) -> Union[dict, list]:
-        if isinstance(data, list):
-            return sorted(data)
-        return {k: sorted(v) for k, v in dict(sorted(data.items())).items()}
-
     # Prepare several pre-required data
     doctor_information = dict()
     practitioner_ref_to_role = dict()
@@ -164,7 +160,7 @@ def get_all_doctor_info(practitioners: list[dict],
     if all(k in kwargs for k in ['start', 'end', 'interval']):
         for fixed_schedules in practitioner_ref_to_schedules.values():
             for date, time_list in fixed_schedules.items():
-                fixed_schedules[date] = convert_time_list_to_merged_time(time_list=__sort_schedule(time_list), **kwargs)
+                fixed_schedules[date] = convert_time_list_to_merged_time(time_list=sort_schedule(time_list), **kwargs)
 
     # Append patient appointments of a doctor
     for appointment in appointments:
@@ -184,8 +180,7 @@ def get_all_doctor_info(practitioners: list[dict],
         doctor_information[practitioner_ref_to_name[ref]] = {
             'department': practitioner_ref_to_role[ref]['department'],
             'specialty': practitioner_ref_to_role[ref]['specialty'],
-            'schedule': __sort_schedule(practitioner_ref_to_schedules.get(ref, [])),
-            'schedule': {k: sorted(v) for k, v in dict(sorted(practitioner_ref_to_schedules.get(ref, []).items())).items()},
+            'schedule': sort_schedule(practitioner_ref_to_schedules.get(ref, [])),
             'capacity_per_hour': practitioner_ref_to_role[ref]['capacity_per_hour'],
             'capacity': practitioner_ref_to_role[ref]['capacity'],
             'gender': resource['gender'],

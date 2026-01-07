@@ -587,3 +587,19 @@ def calculate_age(birthdate_str: str) -> int:
     if (today.month, today.day) < (birthdate.month, birthdate.day):
         age -= 1
     return age
+
+
+def sort_schedule(data: Union[dict, list]) -> Union[dict, list]:
+    """
+    Recursively sort schedule data for deterministic ordering.
+
+    Args:
+        data (Union[dict, list]): Schedule data to be sorted. Lists are sorted directly, 
+                                  and dictionaries are sorted by keys with their values sorted.
+
+    Returns:
+        Union[dict, list]: Sorted schedule data with consistent ordering.
+    """
+    if isinstance(data, list):
+        return sorted(data)
+    return {k: sorted(v) for k, v in dict(sorted(data.items())).items()}
