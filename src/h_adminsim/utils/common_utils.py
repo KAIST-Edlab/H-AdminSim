@@ -603,3 +603,43 @@ def sort_schedule(data: Union[dict, list]) -> Union[dict, list]:
     if isinstance(data, list):
         return sorted(data)
     return {k: sorted(v) for k, v in dict(sorted(data.items())).items()}
+
+
+def personal_id_to_birth_date(personal_id: str,
+                              start_date: str = "1960-01-01",
+                              end_date: str = "2000-12-31") -> str:
+    """
+    Convert a personal ID (YYMMDD) to a birth date (YYYY-MM-DD).
+
+    Args:
+        personal_id (str): Personal ID in YYMMDD or YYMMDD-XXXX format.
+        start_date (str): Earliest possible birth date (YYYY-MM-DD).
+        end_date (str): Latest possible birth date (YYYY-MM-DD).
+
+    Returns:
+        str: Birth date in YYYY-MM-DD format.
+    """
+    yymmdd = personal_id.split("-")[0]
+
+    yy = int(yymmdd[:2])
+    mm = int(yymmdd[2:4])
+    dd = int(yymmdd[4:6])
+
+    start_year = datetime.fromisoformat(start_date).year
+    end_year = datetime.fromisoformat(end_date).year
+
+    # Century candidates (1900s, 2000s)
+    candidates = []
+    for century in (1900, 2000):
+        year = century + yy
+        try:
+            date = datetime(year, mm, dd)
+            if start_year <= year <= end_year:
+                candidates.append(date)
+        except ValueError:
+            continue
+
+    if not candidates:
+        return f"{random.choice(['19', '20'])}{yy}-{mm}-{dd}"
+
+    return candidates[0].strftime("%Y-%m-%d")
