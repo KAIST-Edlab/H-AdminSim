@@ -9,10 +9,11 @@ from langchain.agents import (
     create_openai_tools_agent, 
     create_tool_calling_agent, 
 )
+from patientsim.utils.common_utils import set_seed
 
 from h_adminsim.utils import colorstr, log
-from h_adminsim.client import GeminiClient, GPTClient, VLLMClient
 from h_adminsim.tools import SchedulingRule, create_tools
+from h_adminsim.client import GeminiClient, GPTClient, VLLMClient
 
 
 
@@ -26,7 +27,6 @@ class AdminStaffAgent:
                  system_prompt_path: Optional[str] = None,
                  scheduling_user_prompt_path: Optional[str] = None,
                  tool_calling_prompt_path: Optional[str] = None,
-                 reasoning_effort: str = 'low',
                  **kwargs) -> None:
         
         # Initialize environment
@@ -40,7 +40,6 @@ class AdminStaffAgent:
             api_key=api_key,
             use_vllm=use_vllm,
             vllm_endpoint=vllm_endpoint,
-            reasoning_effort=reasoning_effort
         )
         
         # Initialize prompt
@@ -60,14 +59,22 @@ class AdminStaffAgent:
         """
         assert self.target_task in ['first_outpatient_intake', 'first_outpatient_scheduling'], \
             log(colorstr("red", f"Unsupported target task: {self.target_task}. Supported tasks are 'first_outpatient_intake' and 'first_outpatient_scheduling'."))
+
+        self.random_seed = kwargs.get('random_seed', None)
+        self.temperature = kwargs.get('temperature', 0.2)   # For various responses. If you want deterministic responses, set it to 0.
+        self.staff_greet = kwargs.get('staff_greet', "How would you like to schedule the appointment?")
+        self.staff_suggestion = kwargs.get('staff_suggestion', "How about this schedule: {schedule}")
         
+        # Set random seed for reproducibility
+        if self.random_seed:
+            set_seed(self.random_seed)
+
 
     def _init_model(self,
                     model: str,
                     api_key: Optional[str] = None,
                     use_vllm: bool = False,
-                    vllm_endpoint: Optional[str] = None,
-                    reasoning_effort: str = 'low') -> None:
+                    vllm_endpoint: Optional[str] = None) -> None:
         """
         Initialize the model and API client based on the specified model type.
 
@@ -84,22 +91,10 @@ class AdminStaffAgent:
         """
         if 'gemini' in model.lower():
             self.client = GeminiClient(model, api_key)
-            self.reasoning_kwargs = {}
-            if reasoning_effort:
-                log("'reasoning_effort' is not supported for Gemini models and will be ignored.", level='warning')
-        
         elif 'gpt' in model.lower():       # TODO: Support o3, o4 models etc.
             self.client = GPTClient(model, api_key)
-            self.reasoning_kwargs = {'reasoning_effort': reasoning_effort} if 'gpt-5' in model.lower() else {}
-            if 'gpt-5' not in model.lower() and reasoning_effort:
-                log(f"'reasoning_effort' is not supported for {model} model and will be ignored.", level='warning')
-        
         elif use_vllm:
             self.client = VLLMClient(model, vllm_endpoint)
-            self.reasoning_kwargs = {}
-            if reasoning_effort:
-                log("'reasoning_effort' is not supported for vLLM models and will be ignored.", level='warning')
-        
         else:
             raise ValueError(colorstr("red", f"Unsupported model: {model}. Supported models are 'gemini' and 'gpt'."))
         
@@ -126,7 +121,7 @@ class AdminStaffAgent:
         """
         # Initialilze with the default system prompt
         if not system_prompt_path:
-            prompt_file_name = 'schedule_task_system.txt'
+            prompt_file_name = 'schedule_staff_system.txt'
             file_path = resources.files("h_adminsim.assets.prompts").joinpath(prompt_file_name)
             system_prompt = file_path.read_text()
         
@@ -139,7 +134,7 @@ class AdminStaffAgent:
 
         # Initialilze with the default user prompt for scheduling task
         if not scheduling_user_prompt_path:
-            prompt_file_name = 'schedule_task_user.txt'
+            prompt_file_name = 'schedule_staff_reasoning.txt'
             file_path = resources.files("h_adminsim.assets.prompts").joinpath(prompt_file_name)
             scheduling_user_prompt_template = file_path.read_text()
         
@@ -152,7 +147,7 @@ class AdminStaffAgent:
 
         # Initialilze with the default tool calling prompt
         if not tool_calling_prompt_path:
-            prompt_file_name = 'schedule_tool_calling_system.txt'
+            prompt_file_name = 'schedule_staff_tool_calling.txt'
             file_path = resources.files("h_adminsim.assets.prompts").joinpath(prompt_file_name)
             tool_calling_prompt = file_path.read_text()
         
@@ -246,12 +241,12 @@ class AdminStaffAgent:
         Returns:
             str: The response from the patient agent.
         """
-        kwargs.update(self.reasoning_kwargs)
         response = self.client(
             user_prompt=user_prompt,
             system_prompt=self.system_prompt,
             using_multi_turn=using_multi_turn,
             verbose=verbose,
+            temperature=self.temperature,
             **kwargs
         )
         return response
