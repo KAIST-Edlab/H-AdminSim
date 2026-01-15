@@ -24,7 +24,6 @@ class AdminStaffAgent:
                  use_vllm: bool = False,
                  vllm_endpoint: Optional[str] = None,
                  system_prompt_path: Optional[str] = None,
-                 intention_user_prompt_path: Optional[str] = None,
                  scheduling_user_prompt_path: Optional[str] = None,
                  tool_calling_prompt_path: Optional[str] = None,
                  reasoning_effort: str = 'low',
@@ -45,10 +44,9 @@ class AdminStaffAgent:
         )
         
         # Initialize prompt
-        self.system_prompt, self.intention_user_prompt_template, self.scheduling_user_prompt_template, self.tool_calling_prompt = \
+        self.system_prompt, self.scheduling_user_prompt_template, self.tool_calling_prompt = \
             self._init_prompt(
                 system_prompt_path=system_prompt_path, 
-                intention_user_prompt_path=intention_user_prompt_path,
                 scheduling_user_prompt_path=scheduling_user_prompt_path,
                 tool_calling_prompt_path=tool_calling_prompt_path
             )
@@ -108,23 +106,20 @@ class AdminStaffAgent:
 
     def _init_prompt(self, 
                      system_prompt_path: Optional[str] = None, 
-                     intention_user_prompt_path: Optional[str] = None,
                      scheduling_user_prompt_path: Optional[str] = None,
-                     tool_calling_prompt_path: Optional[str] = None) -> Tuple[str, str, str, Optional[str]]:
+                     tool_calling_prompt_path: Optional[str] = None) -> Tuple[str, str, Optional[str]]:
         """
         Initialize the system prompt for the administration staff agent.
 
         Args:
             system_prompt_path (Optional[str], optional): Path to a custom system prompt file. 
                                                           If not provided, the default system prompt will be used. Defaults to None.
-            intention_user_prompt_path (Optional[str], optional): Path to a custom user prompt file for intention clarification. 
-                                                                  If not provided, the default user prompt will be used. Defaults to None.
             scheduling_user_prompt_path (Optional[str], optional): Path to a custom user prompt file. 
                                                                    If not provided, the default user prompt will be used. Defaults to None.
             tool_calling_prompt_path (Optional[str], optional): Path to a custom tool calling prompt file. 
                                                                 If not provided, the default tool calling prompt will be used. Defaults to None.
         Returns:
-            Tuple[str, str, str, Optional[str]]: The system prompt and user prompt templates.
+            Tuple[str, str, Optional[str]]: The system prompt and user prompt templates.
 
         Raises:
             FileNotFoundError: If the specified system prompt file does not exist.
@@ -141,19 +136,6 @@ class AdminStaffAgent:
                 raise FileNotFoundError(colorstr("red", f"System prompt file not found: {system_prompt_path}"))
             with open(system_prompt_path, 'r') as f:
                 system_prompt = f.read()
-
-        # Initialilze with the default user prompt for intention clarification
-        if not intention_user_prompt_path:
-            prompt_file_name = 'intention_task_user.txt'
-            file_path = resources.files("h_adminsim.assets.prompts").joinpath(prompt_file_name)
-            intention_user_prompt_template = file_path.read_text()
-        
-        # User can specify a custom user prompt
-        else:
-            if not os.path.exists(intention_user_prompt_path):
-                raise FileNotFoundError(colorstr("red", f"User prompt file not found: {intention_user_prompt_path}"))
-            with open(intention_user_prompt_path, 'r') as f:
-                intention_user_prompt_template = f.read()
 
         # Initialilze with the default user prompt for scheduling task
         if not scheduling_user_prompt_path:
@@ -177,12 +159,12 @@ class AdminStaffAgent:
         # User can specify a custom tool calling prompt
         else:
             if not os.path.exists(tool_calling_prompt_path):
-                tool_calling_prompt = None
+                raise FileNotFoundError(colorstr("red", f"User prompt file not found: {tool_calling_prompt_path}"))
             else:
                 with open(tool_calling_prompt_path, 'r') as f:
                     tool_calling_prompt = f.read()
 
-        return system_prompt, intention_user_prompt_template, scheduling_user_prompt_template, tool_calling_prompt
+        return system_prompt, scheduling_user_prompt_template, tool_calling_prompt
     
 
     def reset_history(self, verbose: bool = True) -> None:
