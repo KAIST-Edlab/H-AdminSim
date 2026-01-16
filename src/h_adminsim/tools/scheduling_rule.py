@@ -1,6 +1,4 @@
-from copy import deepcopy
 from decimal import Decimal
-from typing import Tuple, Union
 from langchain.tools import tool
 from langchain.agents import AgentExecutor
 
@@ -11,8 +9,6 @@ from h_adminsim.utils.common_utils import (
     convert_time_to_segment,
     compare_iso_time,
     get_iso_time,
-    iso_to_date,
-    iso_to_hour,
 )
 from h_adminsim.utils import log
 
@@ -233,8 +229,6 @@ def scheduling_tool_calling(client: AgentExecutor,
         client (AgentExecutor): The agent executor to handle tool calls.
         rule (SchedulingRule): The scheduling rule instance.
         known_condition (dict): Patient conditions known to the staff.
-        doctor_information (dict): A dictionary containing information about the doctor(s) involved,
-                                   including availability and other relevant details.
         current_time (str): Current time of the simulation environment.
     
     Returns:
