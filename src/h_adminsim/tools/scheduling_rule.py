@@ -144,19 +144,20 @@ class SchedulingRule:
         return list(candidate_schedules)
     
 
-    def cancel(self, patient_schedule_list: list[dict], patient_name: str, doctor_name: str, date: str) -> int:
+    def find_idx(self, patient_schedule_list: list[dict], patient_name: str, doctor_name: str, date: str) -> int:
         """
-        Identify the index of the appointment to be cancelled from the patient's schedule list.
+        Identify the index of the appointment corresponding to the patient's request
+        (e.g., cancellation or modification) from the patient's schedule list.
 
         Args:
-            patient_schedule_list (list[dict]): A list of the patient's scheduled appointments. 
+            patient_schedule_list (list[dict]): A list of the patient's scheduled appointments.
                                                 Each item contains appointment details such as doctor name, date, and time.
-            patient_name (str): Name of the patient requesting the cancellation.
-            doctor_name (str): Name of the doctor for the appointment to be cancelled.
-            date (str): Date of the appointment to be cancelled (YYYY-MM-DD).
+            patient_name (str): Name of the patient making the request.
+            doctor_name (str): Name of the doctor associated with the target appointment.
+            date (str): Date of the target appointment (YYYY-MM-DD).
 
         Returns:
-            int: The index of the matching appointment(s) in the schedule list.
+            int: The index of the appointment that matches the patient's request.
         """
         for idx, patient_schedule in enumerate(patient_schedule_list):
             if patient_schedule['patient'].lower() == patient_name.lower() and \
@@ -268,11 +269,34 @@ def create_tools(rule: SchedulingRule,
         Returns:
             int: The index of the matching appointment(s) in the schedule list.
         """
-        log(f'[TOOL CALL] cancel_tool', color=True)
-        index = rule.cancel(patient_schedule_list, patient_name, doctor_name, date)
+        log(f'[TOOL CALL] cancel_tool | patient_name={patient_name}, doctor_name={doctor_name}, date={date}', color=True)
+        prefix = 'Dr.'
+        if prefix not in doctor_name:
+            doctor_name = f'{prefix} {doctor_name}'
+        index = rule.find_idx(patient_schedule_list, patient_name, doctor_name, date)
+        return index
+
+    @tool
+    def reschedule_tool(patient_name: str, doctor_name: str, date: str) -> int:
+        """
+        Identify the index of the appointment to be rescheduled from the patient's schedule list.
+
+        Args:
+            patient_name (str): Name of the patient requesting the rescheduling.
+            doctor_name (str): Name of the doctor for the appointment to be rescheduled.
+            date (str): Date of the original appointment to be rescheduled (YYYY-MM-DD).
+
+        Returns:
+            int: The index of the matching appointment(s) in the schedule list.
+        """
+        log(f'[TOOL CALL] reschedule_tool | patient_name={patient_name}, doctor_name={doctor_name}, date={date}', color=True)
+        prefix = 'Dr.'
+        if prefix not in doctor_name:
+            doctor_name = f'{prefix} {doctor_name}'
+        index = rule.find_idx(patient_schedule_list, patient_name, doctor_name, date)
         return index
     
-    return [physician_filter_tool, date_filter_tool, no_filter_tool, cancel_tool]
+    return [physician_filter_tool, date_filter_tool, no_filter_tool, cancel_tool, reschedule_tool]
 
 
 
@@ -290,6 +314,7 @@ def scheduling_tool_calling(client: AgentExecutor,
     Returns:
         dict: A dictionary containing the scheduled doctor and their corresponding schedule.
     """
+    # TODO: 'Agent stopped due to max iterations.' 이런 경우를 이용해서 tool calling 실패한 케이스 판별
     inputs = {
         "input": user_prompt,
         "chat_history": history,

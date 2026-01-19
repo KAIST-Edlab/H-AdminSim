@@ -18,6 +18,7 @@ STATUS_CODES = {
     },
     'tool': 'wrong tool selection or wrong type of argument',
     'cancel': 'fail to cancellation',
+    'waiting list': 'fail to add to waiting list',
     # 'workload': 'workload balancing',
     'preceding': 'preceding task failed',
     'correct': 'pass',

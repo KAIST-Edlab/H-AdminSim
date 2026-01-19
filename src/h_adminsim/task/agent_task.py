@@ -542,6 +542,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         self.max_inferences = scheduling_max_inference
         self.schedule_patient_system_prompt_path = str(resources.files("h_adminsim.assets.prompts").joinpath('schedule_patient_system.txt'))
         self.cancel_patient_system_prompt_path = str(resources.files("h_adminsim.assets.prompts").joinpath('cancel_patient_system.txt'))
+        self.reschedule_patient_system_prompt_path = str(resources.files("h_adminsim.assets.prompts").joinpath('reschedule_patient_system.txt'))
         self.patient_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.patient_model.lower() else {}
         self.staff_reasoning_kwargs = {'reasoning_effort': 'low'} if 'gpt-5' in self.admin_staff_model.lower() else {}
 
@@ -796,8 +797,8 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                         doctor_information: dict, 
                         environment: HospitalEnvironment, 
                         idx: Optional[int] = None, 
-                        verbose: bool = False,
-                        simulation_base: bool = True) -> Optional[Tuple[int, int, bool, str, dict]]:
+                        simulation_base: bool = True,
+                        verbose: bool = False) -> Optional[Tuple[int, int, bool, str, dict]]:
         """
         Cancel a doctor's scheduled appointment.
 
@@ -806,8 +807,8 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                                        including availability and other relevant details.
             environment (HospitalEnvironment): Hospital environment.
             idx (int, optional): Specific patient schedule index.
-            verbose (bool, optional): Whether logging the each result or not. Defaults to False.
             simulation_base (bool, optional): Whether to perform cancellation via simulation. Defaults to True.
+            verbose (bool, optional): Whether logging the each result or not. Defaults to False.
 
         Returns:
             Optional[Tuple[int, int, bool, str, dict]]: 
@@ -817,12 +818,14 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                 - A string describing the cancellation status.
                 - Updated doctor information with the cancelled schedule removed.
         """
+        # TODO: AssertionError exception 추가해서 STATUS CODE 추가.
         if idx is None:
             candidate_idx = [i for i, schedule in enumerate(environment.patient_schedules) if schedule['status'] == 'scheduled']
             idx = random.choice(candidate_idx) if len(candidate_idx) else -1
 
         if idx >= 0:
             cancelled_schedule = environment.patient_schedules[idx]
+            patient = cancelled_schedule['patient']
             doctor, date, time = cancelled_schedule['attending_physician'], cancelled_schedule['date'], cancelled_schedule['schedule']
             schedule_list = doctor_information[doctor]['schedule'][date]
             
@@ -832,8 +835,8 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                     system_prompt_path=self.cancel_patient_system_prompt_path,
                     environment=environment,
                     additional_patient_conditions={
-                        'patient_name': cancelled_schedule['patient'],
-                        'doctor_name': cancelled_schedule['attending_physician'],
+                        'patient_name': patient,
+                        'doctor_name': doctor,
                         'date': date,
                         'start_time': hour_to_hhmmss(time[0])
                     }
@@ -843,6 +846,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                     patient_schedules=environment.patient_schedules,
                     verbose=verbose,
                     max_inferences=self.max_inferences,
+                    patient_kwargs=self.patient_reasoning_kwargs,
                     max_retries=self.max_retries,
                 )
             else:
@@ -868,6 +872,68 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                 return idx, pred_index, False, STATUS_CODES['cancel'], doctor_information
         
         return None
+    
+
+    def add_waiting_list(self, 
+                         environment: HospitalEnvironment, 
+                         idx: Optional[int] = None, 
+                         simulation_base: bool = True,
+                         verbose: bool = False) -> Optional[Tuple[int, int, bool, str]]:
+        """
+        Add a patient schedule to the waiting list in the given environment.
+
+        Args:
+            environment (HospitalEnvironment): Hospital environment.
+            idx (int, optional): Specific patient schedule index.
+            simulation_base (bool, optional): Whether to perform add to a waiting list via simulation. Defaults to True.
+            verbose (bool, optional): Whether logging the each result or not. Defaults to False.
+        
+        Returns:
+            Optional[Tuple[int, int, bool, str, dict]]: 
+                - Ground-truth index of the rescheduling requested schedule among all schedules.
+                - Predicted index of the rescheduling requested schedule. If the cancellation fails, this value is -1.
+                - A boolean indicating whether the adding to the waiting list was successful.
+                - A string describing the adding waiting list status.
+        """
+        if idx is None:
+            candidate_idx = [i for i, schedule in enumerate(environment.patient_schedules) if schedule['status'] == 'scheduled']
+            idx = random.choice(candidate_idx) if len(candidate_idx) else -1
+        
+        if idx >= 0:
+            requested_schedule = environment.patient_schedules[idx]
+            if all(requested_schedule != s[1] for s in environment.waiting_list):
+                patient = requested_schedule['patient']
+                doctor, date, time = requested_schedule['attending_physician'], requested_schedule['date'], requested_schedule['schedule']
+
+                if simulation_base:
+                    sim_environment = self._init_simulation(
+                        system_prompt_path=self.reschedule_patient_system_prompt_path,
+                        environment=environment,
+                        additional_patient_conditions={
+                            'patient_name': patient,
+                            'doctor_name': doctor,
+                            'date': date,
+                            'start_time': hour_to_hhmmss(time[0])
+                        }
+                    )
+                    pred_index = self.run_with_retry(
+                        sim_environment.rescheduling_simulate,
+                        patient_schedules=environment.patient_schedules,
+                        verbose=verbose,
+                        max_inferences=self.max_inferences,
+                        patient_kwargs=self.patient_reasoning_kwargs,
+                        max_retries=self.max_retries,
+                    )
+                else:
+                    pred_index = idx
+                    
+                if not simulation_base or (simulation_base and idx == pred_index):
+                    environment.add_waiting_list(pred_index, verbose)
+                    return idx, pred_index, True, STATUS_CODES['correct']
+                else:
+                    return idx, pred_index, False, STATUS_CODES['waiting list']
+
+        return None 
     
 
     def move_up_schedule(self,
@@ -943,241 +1009,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                         predictions.append(prediction)
         
         return statuses, status_codes, predictions, doctor_information
-    
-
-    def add_waiting_list(self, 
-                         environment: HospitalEnvironment, 
-                         idx: Optional[int] = None, 
-                         verbose: bool = False):
-        """
-        Add a patient schedule to the waiting list in the given environment.
-
-        Args:
-            environment (HospitalEnvironment): Hospital environment.
-            idx (int, optional): Specific patient schedule index.
-            verbose (bool, optional): Whether logging the each result or not. Defaults to False.
-        """
-        if not idx:
-            candidate_idx = [i for i, schedule in enumerate(environment.patient_schedules) if schedule['status'] == 'scheduled']
-            idx = random.choice(candidate_idx) if len(candidate_idx) else -1
-        
-        if idx >= 0:
-            environment.add_waiting_list(idx, verbose)
-
-
-    # def scheduling(self,
-    #                known_condition: dict,
-    #                gt_patient_condition: dict, 
-    #                doctor_information: dict, 
-    #                environment: HospitalEnvironment, 
-    #                reschedule_flag: bool = False, 
-    #                verbose: bool = False) -> Tuple[bool, str, Union[str, dict]]:
-    #     """
-    #     Make an appointment between the doctor and the patient.
-
-    #     Args:
-    #         known_condition (dict): Patient conditions known to the staff.
-    #         gt_patient_condition (dict): Ground truth patient conditions used only for sanity checks.
-    #         doctor_information (dict): A dictionary containing information about the doctor(s) involved,
-    #                                    including availability and other relevant details.
-    #         environment (HospitalEnvironment): Hospital environment.
-    #         reschedule_flag (bool, optional): Whether this process is rescheduling or not. Defaults to False.
-    #         verbose (bool, optional): Whether logging the each result or not. Defaults to False.
-
-    #     Return
-    #         Tuple[bool, str, Union[str, dict], dict, list[str]]: 
-    #             - A boolean indicating whether the prediction passed all sanity checks.
-    #             - A string explaining its status.
-    #             - The original prediction (wrong case) or processed prediction (correct case) (either unchanged or used for debugging/logging if invalid).
-    #     """
-    #     department = known_condition['department']
-    #     reschedule_desc = "Rescheduling requested. This is the rescheduling of a patient who wishes to move their appointment earlier due to a previous patient's cancelled reservation" \
-    #         if reschedule_flag else 'Not requested.'
-        
-    #     if reschedule_flag:
-    #         log(f'\n{colorstr("RESCEDULE")}: Rescheduling occured.')
-        
-    #     ################################# LLM-based Scheduling #################################
-    #     if self.scheduling_strategy == 'llm':
-    #         filtered_doctor_information = environment.get_doctor_schedule(
-    #             doctor_information=doctor_information if not self.fhir_integration else None,
-    #             department=department,
-    #             fhir_integration=self.fhir_integration,
-    #             express_detail=True
-    #         )
-    #         user_prompt = self.admin_staff_agent.scheduling_user_prompt_template.format(
-    #             START_HOUR=self._START_HOUR,
-    #             END_HOUR=self._END_HOUR,
-    #             TIME_UNIT=self._TIME_UNIT,
-    #             CURRENT_TIME=environment.current_time,
-    #             DEPARTMENT=department,
-    #             PREFERENCE=known_condition['patient_intention'],
-    #             RESCHEDULING_FLAG=reschedule_desc,
-    #             DAY=self._DAY,
-    #             DOCTOR=json.dumps(filtered_doctor_information, indent=2),
-    #         )
-    #         prediction = self.run_with_retry(
-    #             self.admin_staff_agent,
-    #             user_prompt,
-    #             using_multi_turn=False,
-    #             verbose=False,
-    #             max_retries=self.max_retries,
-    #             **self.staff_reasoning_kwargs
-    #         )
-    #         prediction = OutpatientFirstScheduling.postprocessing(prediction)    
-    #         status, status_code = self._sanity_check(
-    #             prediction, 
-    #             gt_patient_condition,
-    #             doctor_information,
-    #             environment
-    #         )
-
-    #         if status:
-    #             pred_doctor_name = list(prediction['schedule'].keys())[0]
-    #             prediction = {
-    #                 'patient': known_condition['patient'],
-    #                 'attending_physician': pred_doctor_name,
-    #                 'department': known_condition['department'],
-    #                 'date': prediction['schedule'][pred_doctor_name]['date'],
-    #                 'schedule': [
-    #                     prediction['schedule'][pred_doctor_name]['start'], 
-    #                     prediction['schedule'][pred_doctor_name]['end']
-    #                 ],
-    #                 'patient_intention': known_condition['patient_intention'],
-    #                 'preference': gt_patient_condition.get('preference'),
-    #                 'preferred_doctor': gt_patient_condition.get('preferred_doctor'),
-    #                 'valid_from': gt_patient_condition.get('valid_from'),
-    #                 'last_updated_time': environment.current_time
-    #             }
-
-    #         if verbose: 
-    #             log(f'Pred  : {prediction}')
-    #             log(f'Status: {status_code}')
-                
-    #         # Append token data and reset agents
-    #         self.save_token_data(
-    #             admin_staff_token=self.admin_staff_agent.client.token_usages, 
-    #         )
-    #         self.admin_staff_agent.reset_history(verbose=False)
-        
-    #     ############################# Tool calling-based Scheduling ############################
-    #     elif self.scheduling_strategy == 'tool_calling':
-    #         filtered_doctor_information = environment.get_doctor_schedule(
-    #             doctor_information=doctor_information if not self.fhir_integration else None,
-    #             department=department,
-    #             fhir_integration=self.fhir_integration,
-    #         )
-    #         self.client = self.admin_staff_agent.build_agent(self.rules, filtered_doctor_information)
-    #         try:
-    #             prediction = scheduling_tool_calling(self.client, self.rules, known_condition, doctor_information, environment.current_time)
-    #             status, status_code = self._sanity_check(
-    #                 prediction, 
-    #                 gt_patient_condition,
-    #                 doctor_information,
-    #                 environment
-    #             )
-    #         except:
-    #             log('Fail to load an appropriate tool', level='warning')
-    #             prediction = 'Fail to load an appropriate tool'
-    #             status, status_code  = False, STATUS_CODES['tool']
-                    
-    #         if status:
-    #             pred_doctor_name = list(prediction['schedule'].keys())[0]
-    #             prediction = {
-    #                 'patient': known_condition['patient'],
-    #                 'attending_physician': pred_doctor_name,
-    #                 'department': known_condition['department'],
-    #                 'date': prediction['schedule'][pred_doctor_name]['date'],
-    #                 'schedule': [
-    #                     prediction['schedule'][pred_doctor_name]['start'], 
-    #                     prediction['schedule'][pred_doctor_name]['end']
-    #                 ],
-    #                 'patient_intention': known_condition['patient_intention'],
-    #                 'preference': gt_patient_condition.get('preference'),
-    #                 'preferred_doctor': gt_patient_condition.get('preferred_doctor'),
-    #                 'valid_from': gt_patient_condition.get('valid_from'),
-    #                 'last_updated_time': environment.current_time
-    #             }
-
-    #         if verbose: 
-    #             log(f'Pred  : {prediction}')
-    #             log(f'Status: {status_code}') 
-
-    #     else:
-    #         raise NotImplementedError(
-    #             colorstr('red', 'Unsupported strategy. Supported strategies are ["llm", "tool_calling"].')
-    #         )
-
-    #     return status, status_code, prediction
-    
-
-    # def get_intention(self, 
-    #                   patient_condition: dict, 
-    #                   rejected_preference: Optional[str] = None,
-    #                   rejected_schedule: Optional[dict] = None) -> str:
-    #     """
-    #     Get patient's scheduling preferences fron conversation.
-
-    #     Args:
-    #         patient_condition (dict): Patient characteristics, including the ground-truth scheduling preference.
-    #         rejected_preference (Optional[str], optional): Scheduling preference rejected in the previous turn.
-    #         rejected_schedule (Optional[dict], optional): Scheduling proposal previously suggested by the staff and rejected by the patient.
-
-    #     Returns:
-    #         str: The patient utterance having his intention.
-    #     """
-    #     user_prompt = 'How would you like to schedule the appointment?'
-        
-    #     # Update system prompt of the patient agent in rejecting case
-    #     if rejected_preference:
-    #         preference = patient_condition.get('preference')
-    #         preference_desc = PREFERENCE_PHRASE_PATIENT[preference] if preference != 'date' \
-    #                 else PREFERENCE_PHRASE_PATIENT[preference].format(date=patient_condition.get('valid_from'))
-    #         rejected_preference_desc = PREFERENCE_PHRASE_STAFF[rejected_preference] if rejected_preference != 'date' \
-    #                 else PREFERENCE_PHRASE_STAFF[rejected_preference].format(date='a specific date')
-            
-    #         # New system prompts for rejection scenario
-    #         file_path = resources.files("h_adminsim.assets.prompts").joinpath('schedule_patient_rejected_system.txt')
-    #         system_prompt_template = file_path.read_text()
-    #         system_prompt = system_prompt_template.format(
-    #             preference=preference,
-    #             preference_desc=preference_desc,
-    #             preferred_doctor=patient_condition['preferred_doctor'],
-    #             rejected_preference=rejected_preference_desc,
-    #             personality=self.patient_agent.personality,
-    #         )
-    #         self.patient_agent.system_prompt = system_prompt
-    #         if len(self.patient_agent.client.histories) and \
-    #             isinstance(self.patient_agent.client.histories[0], dict) and \
-    #                 self.patient_agent.client.histories[0].get('role') == 'system':
-    #             self.patient_agent.client.histories[0]['content'] = system_prompt
-    #         user_prompt = self.schedule_suggestion_desc.format(schedule=rejected_schedule)
-            
-    #     role = f"{colorstr('blue', 'Staff')}"
-    #     log(f"{role:<25}: {user_prompt}")
-
-    #     # Patient response
-    #     response = self.run_with_retry(
-    #         self.patient_agent,
-    #         user_prompt,
-    #         using_multi_turn=True,
-    #         verbose=False,
-    #         max_retries=self.max_retries,
-    #         **self.patient_reasoning_kwargs
-    #     )
-    #     role = f"{colorstr('green', 'Patient')} ({patient_condition['preference']})"
-    #     log(f"{role:<25}: {response}")
-
-    #     # Save token data and reset the staff agent
-    #     self.save_token_data(
-    #         patient_token=self.patient_agent.client.token_usages,
-    #     )
-
-    #     # Reset the staff agent history for the scheduling task
-    #     self.admin_staff_agent.reset_history(verbose=False)      
-
-    #     return response
-    
+               
 
     def update_env(self, 
                    status: bool, 
@@ -1303,7 +1135,6 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         # Simulate the scheduling task
         # TODO: using retry function
         for i, prediction in enumerate(sim_environment.scheduling_simulate(
-            strategy=self.scheduling_strategy,
             gt_data=gt_data,
             staff_known_data=staff_known_data,
             doctor_information=doctor_information,
@@ -1374,8 +1205,8 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                 gt_idx, pred_idx, status, status_code, doctor_information = output
                 agent_test_data['doctor'] = doctor_information
 
-                results['gt'].append(gt_idx)
-                results['pred'].append(pred_idx)
+                results['gt'].append({'cancel': gt_idx})
+                results['pred'].append({'cancel': pred_idx})
                 results['status'].append(status)
                 results['status_code'].append(status_code)
 
@@ -1386,7 +1217,22 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         
         ## Try to move up the existing patient schedule
         if random.random() < self.request_early_schedule_prob:
-            self.add_waiting_list(environment, verbose=verbose)
+            output = self.add_waiting_list(
+                environment=environment, 
+                verbose=verbose
+            )
+            if output is not None:
+                gt_idx, pred_idx, status, status_code = output
+
+                results['gt'].append({'waiting list': gt_idx})
+                results['pred'].append({'waiting list': pred_idx})
+                results['status'].append(status)
+                results['status_code'].append(status_code)
+
+                if verbose:
+                    log(f'Pred  : {pred_idx}')
+                    log(f'Status: {status_code}')
+                    log(f'Final Status: {status_code}\n\n\n')
 
         ## Regular check of the waiting list 
         statuses, status_codes, predictions, doctor_information = self.move_up_schedule(
