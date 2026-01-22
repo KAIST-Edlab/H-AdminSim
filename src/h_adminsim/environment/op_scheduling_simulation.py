@@ -731,6 +731,7 @@ class OPScehdulingSimulation:
         self.result_dict = init_result_dict()
         self._init_agents(verbose=verbose)
         patient_schedules = self.environment.patient_schedules if patient_schedules is None else patient_schedules
+        doctor_information = self.environment.get_general_doctor_info_from_fhir() if self.fhir_integration else doctor_information
         client = self.admin_staff_agent.build_agent(
             rule=self.rules, 
             doctor_info=doctor_information,
