@@ -26,7 +26,6 @@ STATUS_CODES = {
         'type': 'reschedule: unexpected tool calling result'
     },
     'waiting list': 'fail to add to waiting list',
-    # 'workload': 'workload balancing',
     'preceding': 'preceding task failed',
     'correct': 'pass',
 }
@@ -69,6 +68,14 @@ STATUS_CODES = {
 
 class ToolCallingError(Exception):
     error_code = "TOOL_CALLING_ERROR"
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
+class ScheduleNotFoundError(Exception):
+    error_code = "SCHEDULE_NOT_FOUND_ERROR"
 
     def __init__(self, message: str):
         super().__init__(message)

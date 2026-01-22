@@ -16,6 +16,7 @@ from h_adminsim import AdminStaffAgent as SchedulingAdminStaffAgent
 from h_adminsim.environment.hospital import HospitalEnvironment
 from h_adminsim.environment import OPScehdulingSimulation as OPFVScheduleSimulation
 from h_adminsim.tools import DataConverter, SchedulingRule
+from h_adminsim.registry.errors import ScheduleNotFoundError
 from h_adminsim.registry import STATUS_CODES, PREFERENCE_PHRASE_PATIENT
 from h_adminsim.utils import colorstr, log
 from h_adminsim.utils.fhir_utils import *
@@ -693,17 +694,6 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         if not is_earliest:
             return False, STATUS_CODES['preference']['asap']
         
-        # ###################### Check the doctors' workload balance  #####################
-        # if not patient_condition['preference'] == 'doctor':
-        #     schedule_candidates = self.__filter_doctor_schedule(
-        #         doctor_information,
-        #         patient_condition.get('department'),
-        #         environment
-        #     )['doctor']
-        #     selected_doctor_wl = float(schedule_candidates[doctor_name]['workload'][:-1])
-        #     if not all(float(v['workload'][:-1]) >= selected_doctor_wl for k, v in schedule_candidates.items() if k != doctor_name):
-        #         return False, STATUS_CODES['workload']
-                
         return True, STATUS_CODES['correct']
 
 
@@ -748,63 +738,31 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             )
 
             # Schedule cancellation simulation
-            try:
-                doctor_information, result_dict = run_with_retry(
-                    sim_environment.canceling_simulate,
-                    gt_idx=idx,
-                    doctor_information=doctor_information,
-                    patient_schedules=environment.patient_schedules,
-                    verbose=verbose,
-                    max_inferences=self.max_inferences,
-                    patient_kwargs=self.patient_reasoning_kwargs,
-                    staff_kwargs=self.staff_reasoning_kwargs,
-                    max_retries=self.max_retries,
-                )
+            doctor_information, result_dict = run_with_retry(
+                sim_environment.canceling_simulate,
+                gt_idx=idx,
+                doctor_information=doctor_information,
+                patient_schedules=environment.patient_schedules,
+                verbose=verbose,
+                max_inferences=self.max_inferences,
+                patient_kwargs=self.patient_reasoning_kwargs,
+                staff_kwargs=self.staff_reasoning_kwargs,
+                max_retries=self.max_retries,
+            )
 
+            # Successfully canceled
+            if result_dict['status'][0] is not False:   # No GT and correct case
                 # Update waiting list due to cancellation
                 doctor_information, rs_result_dict = self.automatic_waiting_list_update(
                     sim_environment=sim_environment,
+                    environment=environment,
                     doctor_information=doctor_information,
-                    environment=environment
                 )
 
                 # Update result dictionary
                 for key in result_dict.keys():
                     if len(rs_result_dict[key]):
                         result_dict[key].append(tuple(rs_result_dict[key]))
-            
-            # Requested schedule indentification error
-            except ValueError:
-                result_dict = {
-                    'gt': sim_environment.result_dict['gt'],
-                    'pred': sim_environment.result_dict['pred'],
-                    'status': sim_environment.result_dict['status'],
-                    'status_code': sim_environment.result_dict['status_code'],
-                    'dialog': sim_environment.result_dict['dialog']
-                }
-            
-            # Tool calling error
-            except TypeError:
-                result_dict = {
-                    'gt': [{'cancel': idx}],
-                    'pred': [None],
-                    'status': [False],
-                    'status_code': [STATUS_CODES['cancel']['type']],
-                    'dialog': sim_environment.result_dict['dialog']
-                }
-            
-            # Otherwise
-            except Exception as e:
-                status_code = f"Unexpected error: {e}"
-                log(status_code, level='warning')
-                result_dict = {
-                    'gt': [{'cancel': idx}],
-                    'pred': [None],
-                    'status': [False],
-                    'status_code': [status_code],
-                    'dialog': sim_environment.result_dict['dialog']
-                }
-
             
             return doctor_information, result_dict
 
@@ -930,7 +888,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                             }
                 
                 # Requested schedule indentification error
-                except ValueError:
+                except ScheduleNotFoundError:
                     result_dict = {
                         'gt': sim_environment.result_dict['gt'],
                         'pred': sim_environment.result_dict['pred'],
@@ -954,7 +912,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                     status_code = f"Unexpected error: {e}"
                     log(status_code, level='warning')
                     result_dict = {
-                        'gt': [{'cancel': idx}],
+                        'gt': [{'reschedule': idx}],
                         'pred': [None],
                         'status': [False],
                         'status_code': [status_code],
@@ -970,15 +928,16 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
 
     def automatic_waiting_list_update(self, 
                                       sim_environment: OPFVScheduleSimulation,
-                                      doctor_information: dict, 
-                                      environment: HospitalEnvironment) -> Tuple[dict, dict]:
+                                      environment: HospitalEnvironment,
+                                      doctor_information: Optional[dict] = None) -> Tuple[dict, dict]:
         """
         Automatically update the waiting list by attempting to reschedule patients.
 
         Args:
             sim_environment (OPFVScheduleSimulation): The simulation environment used for scheduling.
-            doctor_information (dict): A dictionary containing information about the doctor(s) involved,
             environment (HospitalEnvironment): Hospital environment.
+            doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
+                                                           including availability and other relevant details. Defaults to None.
 
         Returns:
             Tuple[dict, dict]: Updated doctor information and a result dictionary.
@@ -986,12 +945,24 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         result_dict = init_result_dict()
         for turn, (idx, original) in enumerate(environment.waiting_list):
             if original['status'] == 'scheduled':
+                filtered_doctor_information = environment.get_doctor_schedule(
+                    doctor_information=doctor_information if not self.fhir_integration else None,
+                    department=original['department'],
+                    fhir_integration=self.fhir_integration,
+                )
+                _schedule_client = self.admin_staff_agent.build_agent(
+                    rule=self.rules, 
+                    doctor_info=filtered_doctor_information,
+                    only_schedule_tool=True
+                )
                 prediction = sim_environment.scheduling(
+                    client=_schedule_client,
                     known_condition=original,
                     doctor_information=doctor_information,
                     reschedule_flag=True,
                     **self.staff_reasoning_kwargs,
                 )
+
                 status, status_code = self._sanity_check(
                     prediction, 
                     original,

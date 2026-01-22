@@ -252,9 +252,10 @@ class SchedulingRule:
 def create_tools(rule: SchedulingRule, 
                  doctor_info: dict,
                  patient_schedule_list: Optional[list[dict]] = None,
-                 gt_idx: Optional[int] = None) -> list[tool]:
+                 gt_idx: Optional[int] = None,
+                 only_schedule_tool: bool = False) -> list[tool]:
     @tool
-    def physician_filter_tool(preferred_doctor: str) -> str:
+    def physician_filter_tool(preferred_doctor: str) -> dict:
         """
         Return the earliest available schedule for a preferred doctor.
         
@@ -262,7 +263,7 @@ def create_tools(rule: SchedulingRule,
             preferred_doctor: Name of the preferred doctor
 
         Returns:
-            str: The earliest physician-filtered time slot.
+            dict: The earliest physician-filtered time slot and its information.
         """
         log(f'[TOOL CALL] physician_filter_tool | preferred_doctor={preferred_doctor}', color=True)
         prefix = 'Dr.'
@@ -273,7 +274,7 @@ def create_tools(rule: SchedulingRule,
         return schedule
 
     @tool
-    def date_filter_tool(valid_date: str) -> str:
+    def date_filter_tool(valid_date: str) -> dict:
         """
         Return the earliest available schedule after a specific date.
         
@@ -281,7 +282,7 @@ def create_tools(rule: SchedulingRule,
             valid_date: Date in YYYY-MM-DD format.
         
         Returns:
-            str: The earliest date-filtered time slot.
+            dict: The earliest date-filtered time slot and its information.
         """
         log(f'[TOOL CALL] date_filter_tool | valid_date={valid_date}', color=True)
         schedules = rule.date_filter(doctor_info, valid_date)
@@ -289,12 +290,12 @@ def create_tools(rule: SchedulingRule,
         return schedule
 
     @tool
-    def get_all_time_tool() -> str:
+    def get_all_time_tool() -> dict:
         """
         Return the earliest available schedule among the all available time slots.
 
         Returns:
-            str: The earliest time slot.
+            dict: The earliest time slot and its information.
         """
         log(f'[TOOL CALL] get_all_time_tool', color=True)
         schedules = rule.get_all(doctor_info)
@@ -382,6 +383,8 @@ def create_tools(rule: SchedulingRule,
 
         return {'original_schedule': original_schedule, 'result_dict': result_dict}
     
+    if only_schedule_tool:
+        return [physician_filter_tool, date_filter_tool, get_all_time_tool]
     return [physician_filter_tool, date_filter_tool, get_all_time_tool, cancel_tool, reschedule_tool]
 
 
@@ -400,7 +403,6 @@ def scheduling_tool_calling(client: AgentExecutor,
     Returns:
         dict: A dictionary containing the scheduled doctor and their corresponding schedule.
     """
-    # TODO: 'Agent stopped due to max iterations.' 이런 경우를 이용해서 tool calling 실패한 케이스 판별
     inputs = {
         "input": user_prompt,
         "chat_history": history,

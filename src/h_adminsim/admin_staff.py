@@ -27,6 +27,7 @@ class AdminStaffAgent:
                  system_prompt_path: Optional[str] = None,
                  scheduling_user_prompt_path: Optional[str] = None,
                  tool_calling_prompt_path: Optional[str] = None,
+                 sc_tool_calling_prompt_path: Optional[str] = None,
                  **kwargs) -> None:
         
         # Initialize environment
@@ -43,11 +44,12 @@ class AdminStaffAgent:
         )
         
         # Initialize prompt
-        self.system_prompt, self.scheduling_user_prompt_template, self.tool_calling_prompt = \
+        self.system_prompt, self.scheduling_user_prompt_template, self.tool_calling_prompt, self.sc_tool_calling_prompt = \
             self._init_prompt(
                 system_prompt_path=system_prompt_path, 
                 scheduling_user_prompt_path=scheduling_user_prompt_path,
-                tool_calling_prompt_path=tool_calling_prompt_path
+                tool_calling_prompt_path=tool_calling_prompt_path,
+                sc_tool_calling_prompt_path=sc_tool_calling_prompt_path,
             )
         
         log("Administrative staff agent initialized successfully", color=True)
@@ -102,7 +104,8 @@ class AdminStaffAgent:
     def _init_prompt(self, 
                      system_prompt_path: Optional[str] = None, 
                      scheduling_user_prompt_path: Optional[str] = None,
-                     tool_calling_prompt_path: Optional[str] = None) -> Tuple[str, str, Optional[str]]:
+                     tool_calling_prompt_path: Optional[str] = None,
+                     sc_tool_calling_prompt_path: Optional[str] = None) -> Tuple[str, str, str, str]:
         """
         Initialize the system prompt for the administration staff agent.
 
@@ -114,7 +117,7 @@ class AdminStaffAgent:
             tool_calling_prompt_path (Optional[str], optional): Path to a custom tool calling prompt file. 
                                                                 If not provided, the default tool calling prompt will be used. Defaults to None.
         Returns:
-            Tuple[str, str, Optional[str]]: The system prompt and user prompt templates.
+            Tuple[str, str, str, str]: The system prompt, user prompt templates, tool calling prompt, and the only scheduling tool calling prompt.
 
         Raises:
             FileNotFoundError: If the specified system prompt file does not exist.
@@ -158,8 +161,22 @@ class AdminStaffAgent:
             else:
                 with open(tool_calling_prompt_path, 'r') as f:
                     tool_calling_prompt = f.read()
+        
+        # Initialilze with the only scheduling tool calling prompt
+        if not sc_tool_calling_prompt_path:
+            prompt_file_name = 'schedule_staff_sc_tool_calling.txt'
+            file_path = resources.files("h_adminsim.assets.prompts").joinpath(prompt_file_name)
+            sc_tool_calling_prompt = file_path.read_text()
+        
+        # User can specify a custom scheduling tool calling prompt
+        else:
+            if not os.path.exists(sc_tool_calling_prompt_path):
+                raise FileNotFoundError(colorstr("red", f"User prompt file not found: {sc_tool_calling_prompt_path}"))
+            else:
+                with open(sc_tool_calling_prompt_path, 'r') as f:
+                    sc_tool_calling_prompt = f.read()
 
-        return system_prompt, scheduling_user_prompt_template, tool_calling_prompt
+        return system_prompt, scheduling_user_prompt_template, tool_calling_prompt, sc_tool_calling_prompt
     
 
     def reset_history(self, verbose: bool = True) -> None:
@@ -176,7 +193,8 @@ class AdminStaffAgent:
                     rule: SchedulingRule, 
                     doctor_info: dict,
                     patient_schedule_list: Optional[list[dict]] = None,
-                    gt_idx: Optional[int] = None) -> AgentExecutor:
+                    gt_idx: Optional[int] = None,
+                    only_schedule_tool: bool = False) -> AgentExecutor:
         """
         Build a LangChain agent with scheduling tools.
 
@@ -185,13 +203,15 @@ class AdminStaffAgent:
             doctor_info (dict): A dictionary containing information about doctors. Defaults to None.
             patient_schedule_list (Optional[list[dict]], optional): A list of the patient's scheduled appointments. Defaults to None.
             gt_idx (Optional[int], optional): Ground-truth index of the appointment to be canceled or rescheduled. Defaults to None.
+            only_schedule_tool (bool, optional): Whether use only scheduling tools or not. Defaults to False.
 
         Returns:
             AgentExecutor: A LangChain agent executor with the scheduling tools.
         """
-        tools = create_tools(rule, doctor_info, patient_schedule_list, gt_idx)
+        tools = create_tools(rule, doctor_info, patient_schedule_list, gt_idx, only_schedule_tool)
+        tool_calling_prompt = self.sc_tool_calling_prompt if only_schedule_tool else self.tool_calling_prompt
         prompt = ChatPromptTemplate.from_messages([
-            ("system", self.tool_calling_prompt),
+            ("system", tool_calling_prompt),
             MessagesPlaceholder("chat_history"),
             ("user", "{input}"),
             ("assistant", "{agent_scratchpad}"),

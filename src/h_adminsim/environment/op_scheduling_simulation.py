@@ -6,10 +6,12 @@ from importlib import resources
 from patientsim import PatientAgent
 from decimal import Decimal, getcontext
 from typing import Tuple, Union, Optional
+from langchain.agents import AgentExecutor
 from langchain_core.messages import HumanMessage, AIMessage
 
 from h_adminsim import AdminStaffAgent
-from h_adminsim.registry import PREFERENCE_PHRASE_PATIENT, PREFERENCE_PHRASE_STAFF
+from h_adminsim.registry.errors import ToolCallingError, ScheduleNotFoundError
+from h_adminsim.registry import PREFERENCE_PHRASE_PATIENT, PREFERENCE_PHRASE_STAFF, STATUS_CODES
 from h_adminsim.environment.hospital import HospitalEnvironment
 from h_adminsim.utils import log, colorstr
 from h_adminsim.tools import SchedulingRule, scheduling_tool_calling
@@ -139,7 +141,7 @@ class OPScehdulingSimulation:
     
     def postprocessing(self, 
                        strategy: str, 
-                       text: Union[str, dict],
+                       data: Union[str, dict],
                        filtered_doctor_information: Optional[dict] = None) -> Union[str, dict]:
         """
         Attempts to parse the given text as JSON. If parsing succeeds, returns a dictionary;
@@ -147,7 +149,7 @@ class OPScehdulingSimulation:
 
         Args:
             strategy (str): Scheduling strategy. It must be either `llm` or `tool_calling`.
-            text (Union[str, dict]): The text output to post-process, potentially a JSON-formatted string. 
+            data (Union[str, dict]): The text output to post-process, potentially a JSON-formatted string. 
             filtered_doctor_information (Optional[dict], optional): Department-filtered doctor information 
                                                                     to postprocess the schedule by tool_calling strategy.
 
@@ -156,18 +158,18 @@ class OPScehdulingSimulation:
         """
         if strategy == 'llm':
             try:
-                if isinstance(text, str):
-                    match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+                if isinstance(data, str):
+                    match = re.search(r'```json\s*(\{.*?\})\s*```', data, re.DOTALL)
                     if match:
                         json_str = match.group(1)
                         text_dict = json.loads(json_str)
                     else:
                         try:
-                            text_dict = json.loads(text)
+                            text_dict = json.loads(data)
                         except:
-                            return text
+                            return data
                 else:
-                    text_dict = text
+                    text_dict = data
                 
                 assert len(text_dict) == 1 and all(k in text_dict for k in ['schedule'])   # Basic sanity check
                 key = list(text_dict['schedule'].keys())[0]
@@ -177,12 +179,12 @@ class OPScehdulingSimulation:
                 return text_dict
             
             except:
-                return str(text)
+                return str(data)
         
         elif strategy == 'tool_calling':
-            doctor = text['doctor'][0]
+            doctor = data['doctor'][0]
             duration = filtered_doctor_information['doctor'][doctor]['outpatient_duration']
-            date, st_hour = iso_to_date(text['schedule'][0]), iso_to_hour(text['schedule'][0])
+            date, st_hour = iso_to_date(data['schedule'][0]), iso_to_hour(data['schedule'][0])
             tr_hour = float(Decimal(str(duration)) + Decimal(str(st_hour)))
             return {'schedule': {doctor: {'date': date, 'start': st_hour, 'end': tr_hour}}}
 
@@ -221,49 +223,66 @@ class OPScehdulingSimulation:
 
 
     def scheduling(self,
+                   client: AgentExecutor,
                    known_condition: dict,
-                   doctor_information: dict, 
-                   reschedule_flag: bool = False, 
+                   doctor_information: Optional[dict] = None, 
+                   reschedule_flag: bool = False,
+                   chat_history: list = [],
                    **kwargs) -> Union[str, dict]:
         """
         Make an appointment between the doctor and the patient.
 
         Args:
+            client (AgentExecutor): The agent executor to handle tool calls or conversation.
             known_condition (dict): Patient conditions known to the staff.
-            doctor_information (dict): A dictionary containing information about the doctor(s) involved,
-                                       including availability and other relevant details.
+            doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
+                                                           including availability and other relevant details. Defaults to None.
             reschedule_flag (bool, optional): Whether this process is rescheduling or not. Defaults to False.
+            chat_history (list, optional): Chat history. Defaults to [].
 
         Return
             Union[str, dict]: The original prediction (wrong case) or processed prediction (correct case) (either unchanged or used for debugging/logging if invalid).
         """
+        # Sanity Check
+        if not self.fhir_integration:
+            assert doctor_information is not None, log(f"Doctor information must be provided if you don't use FHIR.", level="error")
+
+        # Initialization based on the known condition from the staff
         department = known_condition['department']
         filtered_doctor_information = self.environment.get_doctor_schedule(
             doctor_information=doctor_information if not self.fhir_integration else None,
             department=department,
             fhir_integration=self.fhir_integration,
         )
-        _client = self.admin_staff_agent.build_agent(
-            rule=self.rules, 
-            doctor_info=filtered_doctor_information
-        )
         
         # First, try to use the tool calling
         try:
+            # Invoke
             prediction = scheduling_tool_calling(
-                client=_client, 
-                user_prompt=known_condition['patient_intention']
+                client=client, 
+                user_prompt=known_condition['patient_intention'],
+                history=chat_history
             )
 
+            # Post-processing
+            ## Scheduling result
             if prediction['type'] == 'tool':
-                prediction = self.postprocessing(
-                    'tool_calling',
-                    prediction['result'],
-                    filtered_doctor_information,
+                schedule = self.postprocessing(
+                    strategy='tool_calling',
+                    data=prediction['result'],
+                    filtered_doctor_information=filtered_doctor_information,
                 )
+                prediction['result'] = schedule
+            
+            ## Dialogue
+            elif prediction['type'] == 'text':
+                if 'no tool' in prediction['result'].lower():
+                    raise ToolCallingError(colorstr('red', 'Failed to choose an appropriate scheduling tool.'))
+            
+            ## Error
             else:
-                prediction = prediction['result']
-        
+                raise NotImplementedError(colorstr('red', 'Only supported `tool` and `text` types of result.'))
+
         # If tool calling fails, fallback to LLM-based scheduling
         except:
             log('Failed to select an appropriate tool. Falling back to reasoning-based scheduling.', level='warning')
@@ -286,79 +305,138 @@ class OPScehdulingSimulation:
                 DAY=self._DAY,
                 DOCTOR=json.dumps(filtered_doctor_information, indent=2),
             )
-            prediction = self.admin_staff_agent(
+            schedule = self.admin_staff_agent(
                 user_prompt,
                 using_multi_turn=False,
                 verbose=False,
                 **kwargs,
             )
-            prediction = self.postprocessing(
-                'llm',
-                prediction,
+            schedule = self.postprocessing(
+                strategy='llm',
+                data=schedule,
             )
+            prediction['result'] = schedule
             self.admin_staff_agent.reset_history(verbose=False)
 
         return prediction
     
 
-    def canceling(self, patient_intention: str) -> Union[dict, str]:
+    def canceling(self, 
+                  client: AgentExecutor,
+                  patient_intention: str,
+                  chat_history: list = []) -> Union[dict, str]:
         """
         Handle a multi-turn appointment cancellation request using a tool-calling agent.
 
         Args:
-            patient_intention (str): The patient's utterance expressing a cancellation request.
+            client (AgentExecutor): The agent executor to handle tool calls or conversation.
+            patient_intention (str): The patient's utterance expressing a rescheduling request.
+            chat_history (list, optional): Chat history. Defaults to [].
 
         Returns:
             Union[dict, str]: The cancellation result or a clarification message to the patient.
+
+        Raises:
+            TypeError: If the returned type is not supported.
         """
-        chat_history = self._to_lc_history('cancel')
+        # Invoke
         prediction = scheduling_tool_calling(
-            client=self.client,
+            client=client,
             user_prompt=patient_intention,
             history=chat_history,
         )
-
+        
+        # Canceling result
         if prediction['type'] == 'tool':
             # Schedule not found case: -> return: str
             if prediction['result']['result_dict']['pred'][0]['cancel'] == -1:
-                return "Sorry, we couldn't find a matching appointment. Could you please check your appointment details again?"
+                prediction['type'] = 'text'
+                prediction['result'] = "Sorry, we couldn't find a matching appointment. Could you please check your appointment details again?"
+                return prediction
             
             # Successful cancellation case -> return: dict
             else:
-                return prediction['result']
+                return prediction
 
         # Clarification message case -> return: str
-        return prediction['result']
+        elif prediction['type'] == 'text':
+            return prediction
+
+        # Error
+        else:
+            raise TypeError(colorstr("red", "Error: Unexpected return type from canceling method."))
     
 
-    def rescheduling(self, patient_intention: str) -> Union[dict, str]:
+    def rescheduling(self, 
+                     client: AgentExecutor, 
+                     patient_intention: str,
+                     chat_history: list = [],
+                     doctor_information: Optional[dict] = None,
+                     **kwargs) -> Union[dict, str]:
         """
         Handle a multi-turn appointment rescheduling request using a tool-calling agent.
 
         Args:
+            client (AgentExecutor): The agent executor to handle tool calls or conversation.
             patient_intention (str): The patient's utterance expressing a rescheduling request.
+            chat_history (list, optional): Chat history. Defaults to [].
+            doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
+                                                           including availability and other relevant details. Defaults to None.
 
         Returns:
             Union[dict, str]: The rescheduling result or a clarification message to the patient.
+        
+        Raises:
+            TypeError: If the returned type is not supported.
         """
-        chat_history = self._to_lc_history('reschedule')
+        # Invoke
         prediction = scheduling_tool_calling(
-            client=self.client,
+            client=client,
             user_prompt=patient_intention,
             history=chat_history,
         )
 
+        # Rescheduling result
         if prediction['type'] == 'tool':
             # Schedule not found case: -> return: str
             if prediction['result']['result_dict']['pred'][0]['reschedule'] == -1:
-                return "Sorry, we couldn't find a matching appointment. Could you please check your appointment details again?"
+                prediction['type'] = 'text'
+                prediction['result'] = "Sorry, we couldn't find a matching appointment. Could you please check your appointment details again?"
+                return prediction
         
-            # Successful rescheduling case -> return: dict
+            # Successfully retrieve the original schedule -> return: dict
             else:
-                return prediction['result']
-                    
+                # Step 1: Retrieved original schedule
+                original_schedule = prediction['result']['original_schedule']
+
+                # Step 2: Try to reschedule based on the patient record (or the memo)
+                filtered_doctor_information = self.environment.get_doctor_schedule(
+                    doctor_information=doctor_information if not self.fhir_integration else None,
+                    department=original_schedule['department'],
+                    fhir_integration=self.fhir_integration,
+                )
+                _schedule_client = self.admin_staff_agent.build_agent(
+                    rule=self.rules, 
+                    doctor_info=filtered_doctor_information,
+                    only_schedule_tool=True
+                )
+                new_schedule = self.scheduling(
+                    client=_schedule_client,
+                    known_condition=original_schedule,
+                    doctor_information=doctor_information,
+                    reschedule_flag=True,
+                    **kwargs
+                )
+                prediction['result']['new_schedule'] = new_schedule['result']
+                return prediction
+
         # Clarification message case -> return: str
-        return prediction['result']
+        elif prediction['type'] == 'text':
+            return prediction
+
+        # Error
+        else:
+            raise TypeError(colorstr('red', 'Only supported `tool` and `text` types of result.'))
     
 
     def scheduling_simulate(self,
@@ -387,6 +465,15 @@ class OPScehdulingSimulation:
         # Initialize agents and result dictionary
         self.result_dict = init_result_dict()
         self._init_agents(verbose=verbose)
+        filtered_doctor_information = self.environment.get_doctor_schedule(
+            doctor_information=doctor_information if not self.fhir_integration else None,
+            department=staff_known_data[0]['department'],
+            fhir_integration=self.fhir_integration,
+        )
+        client = self.admin_staff_agent.build_agent(
+            rule=self.rules, 
+            doctor_info=filtered_doctor_information
+        )
         
         # Sanity check for the simulation
         assert len(gt_data) == len(staff_known_data), \
@@ -408,34 +495,48 @@ class OPScehdulingSimulation:
                     rejected_preference=gt_data[i-1]['preference']
                 )
 
-            # Obtain response from patient
-            patient_kwargs.update(kwargs)
-            patient_response = self.patient_agent(
-                self.dialog_history['scheduling'][-1]["content"],
-                using_multi_turn=True,
-                verbose=False,
-                **patient_kwargs,
-            )
-            self.dialog_history['scheduling'].append({"role": "Patient", "content": patient_response})
-            role = f"{colorstr('green', 'Patient')} ({gt_patient_condition['preference']})"
-            log(f"{role:<25}: {patient_response}")
-            
-            # Scheduling from staff
-            staff_kwargs.update(kwargs)
-            staff_known_condition.update({'patient_intention': patient_response})
-            pred_schedule = self.scheduling(
-                staff_known_condition,
-                doctor_information,
-                **staff_kwargs
-            )
-            staff_response = self.admin_staff_agent.staff_suggestion.format(schedule=pred_schedule)
-            self.dialog_history['scheduling'].append({"role": "Staff", "content": staff_response})
-            role = f"{colorstr('blue', 'Staff')}"
-            log(f"{role:<25}: {staff_response}")
+            while 1:
+                # Obtain response from patient
+                patient_kwargs.update(kwargs)
+                patient_response = self.patient_agent(
+                    self.dialog_history['scheduling'][-1]["content"],
+                    using_multi_turn=True,
+                    verbose=False,
+                    **patient_kwargs,
+                )
+                self.dialog_history['scheduling'].append({"role": "Patient", "content": patient_response})
+                role = f"{colorstr('green', 'Patient')} ({gt_patient_condition['preference']})"
+                log(f"{role:<25}: {patient_response}")
+                
+                # Scheduling from staff
+                staff_kwargs.update(kwargs)
+                staff_known_condition.update({'patient_intention': patient_response})
+                staff_response = self.scheduling(
+                    client,
+                    staff_known_condition,
+                    doctor_information,
+                    chat_history=self._to_lc_history('scheduling'),
+                    **staff_kwargs
+                )
+                
+                # Clarification message
+                if staff_response['type'] == 'text':
+                    response = staff_response['result']
+                    self.dialog_history['scheduling'].append({"role": "Staff", "content": response})
+                    role = f"{colorstr('blue', 'Staff')}"
+                    log(f"{role:<25}: {response}")
+                
+                # Tool calling result
+                elif staff_response['type'] == 'tool':
+                    pred_schedule = staff_response['result']
+                    response = self.admin_staff_agent.staff_suggestion.format(schedule=pred_schedule)
+                    self.dialog_history['scheduling'].append({"role": "Staff", "content": response})
+                    role = f"{colorstr('blue', 'Staff')}"
+                    log(f"{role:<25}: {response}")
+                    break
             
             # Save point
             self.result_dict['dialog'] = preprocess_dialog(self.dialog_history['scheduling'])
-            
             yield pred_schedule
 
             # Preference rejection logic
@@ -476,17 +577,19 @@ class OPScehdulingSimulation:
             staff_kwargs (dict, optional): Additional keyword arguments passed to the staff agent.
             **kwargs: Additional keyword arguments passed to the patient and staff agent.
 
-        Raises:
-            TypeError: If the return type from the canceling method is unexpected.
-
         Returns:
             Tuple[dict, dict]: Updated doctor information and a result dictionary after cancellation.
         """
+        # Sanity Check
+        if not self.fhir_integration:
+            assert doctor_information is not None, log(f"Doctor information must be provided if you don't use FHIR.", level="error")
+
         # Initialize agents and result dictionary
-        self.result_dict = init_result_dict()
+        result_dict = init_result_dict()
         self._init_agents(verbose=verbose)
         patient_schedules = self.environment.patient_schedules if patient_schedules is None else patient_schedules
-        self.client = self.admin_staff_agent.build_agent(
+        doctor_information = self.environment.get_general_doctor_info_from_fhir() if self.fhir_integration else doctor_information
+        client = self.admin_staff_agent.build_agent(
             rule=self.rules, 
             doctor_info=doctor_information,
             patient_schedule_list=patient_schedules,
@@ -499,63 +602,100 @@ class OPScehdulingSimulation:
         role = f"{colorstr('blue', 'Staff')}"
         log(f"{role:<25}: {staff_greet}")
 
-        for _ in range(max_inferences):
-            # Obtain response from patient
-            patient_kwargs.update(kwargs)
-            patient_response = self.patient_agent(
-                self.dialog_history['cancel'][-1]["content"],
-                using_multi_turn=True,
-                verbose=False,
-                **patient_kwargs
-            )
-            self.dialog_history['cancel'].append({"role": "Patient", "content": patient_response})
-            role = f"{colorstr('green', 'Patient')} (cancel)"
-            log(f"{role:<25}: {patient_response}")
+        try:
+            for _ in range(max_inferences):
+                # Obtain response from patient
+                patient_kwargs.update(kwargs)
+                patient_response = self.patient_agent(
+                    self.dialog_history['cancel'][-1]["content"],
+                    using_multi_turn=True,
+                    verbose=False,
+                    **patient_kwargs
+                )
+                self.dialog_history['cancel'].append({"role": "Patient", "content": patient_response})
+                role = f"{colorstr('green', 'Patient')} (cancel)"
+                log(f"{role:<25}: {patient_response}")
 
-            # Canceling from staff
-            staff_response = self.canceling(
-                patient_intention=patient_response,
-            )
-            # Clarification message instead of tool calling
-            if isinstance(staff_response, str):
-                self.dialog_history['cancel'].append({"role": "Staff", "content": staff_response})
-                role = f"{colorstr('blue', 'Staff')}"
-                log(f"{role:<25}: {staff_response}")
-            
-            # Tool calling result
-            elif isinstance(staff_response, dict):
-                self._update_result_dict(staff_response['result_dict'])
-                if self.result_dict['status'][0] is not False:  # No GT and correct case
-                    cancelled_schedule = {k: v for k, v in staff_response['cancelled_schedule'].items() \
-                                          if k in ['patient', 'attending_physician', 'department', 'date', 'schedule']}
-                    
-                    # Final response of staff
-                    staff_response = f"I've cancelled this schedule: {cancelled_schedule}"
-                    self.dialog_history['cancel'].append({"role": "Staff", "content": staff_response})
+                # Canceling from staff
+                staff_response = self.canceling(
+                    client=client,
+                    patient_intention=patient_response,
+                    chat_history=self._to_lc_history('cancel'),
+                )
+                # Clarification message instead of tool calling
+                if staff_response['type'] == 'text':
+                    response = staff_response['result']
+                    self.dialog_history['cancel'].append({"role": "Staff", "content": response})
                     role = f"{colorstr('blue', 'Staff')}"
-                    log(f"{role:<25}: {staff_response}")
-
-                    # Final response of patient
-                    self.dialog_history['cancel'].append({"role": "Patient", "content": self.end_phrase})
-                    role = f"{colorstr('green', 'Patient')} (cancel)"
-                    log(f"{role:<25}: {self.end_phrase}")
-
-                    break
+                    log(f"{role:<25}: {response}")
+                    continue
                 
-                else:
-                    self.result_dict['dialog'].append(preprocess_dialog(self.dialog_history['cancel']))
-                    raise ValueError(colorstr("red", "Error: Cancellation failed despite successful tool call."))
-            
-            # Unexpected return type
-            else:
-                self.result_dict['dialog'].append(preprocess_dialog(self.dialog_history['cancel']))
-                raise TypeError(colorstr("red", "Error: Unexpected return type from canceling method."))
-        
-        # End of conversation
-        self.result_dict['dialog'].append(preprocess_dialog(self.dialog_history['cancel']))
-        log("Simulation completed.", color=True)
+                # Tool calling result
+                elif staff_response['type'] == 'tool':
+                    result = staff_response['result']
+                    result_dict = result['result_dict']
+                    
+                    # Succesful case
+                    if result_dict['status'][0] is not False:  # No GT and correct case
+                        cancelled_schedule = {k: v for k, v in result['cancelled_schedule'].items() \
+                                            if k in ['patient', 'attending_physician', 'department', 'date', 'schedule']}
+                        
+                        # Final response of staff
+                        response = f"I've cancelled this schedule: {cancelled_schedule}"
+                        self.dialog_history['cancel'].append({"role": "Staff", "content": response})
+                        role = f"{colorstr('blue', 'Staff')}"
+                        log(f"{role:<25}: {response}")
 
-        return doctor_information, self.result_dict
+                        # Final response of patient
+                        self.dialog_history['cancel'].append({"role": "Patient", "content": self.end_phrase})
+                        role = f"{colorstr('green', 'Patient')} (cancel)"
+                        log(f"{role:<25}: {self.end_phrase}")
+
+                        result_dict['dialog'].append(preprocess_dialog(self.dialog_history['cancel']))
+                        break
+                    
+                    # Fail to identify the schedule
+                    else:
+                        raise ScheduleNotFoundError(colorstr("red", "Error: Schedule not found error."))    
+                
+            # The case without any determination during the simulation
+            if not len(result_dict['gt']):
+                result_dict = {
+                    'gt': [{'cancel': gt_idx}],
+                    'pred': [None],
+                    'status': [False],
+                    'status_code': [STATUS_CODES['cancel']['identify']],
+                    'dialog': [preprocess_dialog(self.dialog_history['cancel'])]
+                }
+                
+        # Requested schedule indentification error
+        except ScheduleNotFoundError:
+            result_dict['dialog'].append(preprocess_dialog(self.dialog_history['cancel']))
+
+        # Tool calling error
+        except TypeError:
+            result_dict = {
+                'gt': [{'cancel': gt_idx}],
+                'pred': [None],
+                'status': [False],
+                'status_code': [STATUS_CODES['cancel']['type']],
+                'dialog': [preprocess_dialog(self.dialog_history['cancel'])]
+            }
+
+        # Otherwhise
+        except Exception as e:
+            status_code = f"Unexpected error: {e}"
+            log(status_code, level='warning')
+            result_dict = {
+                'gt': [{'cancel': gt_idx}],
+                'pred': [None],
+                'status': [False],
+                'status_code': [status_code],
+                'dialog': [preprocess_dialog(self.dialog_history['cancel'])]
+            }
+
+        log("Simulation completed.", color=True)
+        return doctor_information, result_dict
 
 
     def rescheduling_simulate(self, 
@@ -591,7 +731,7 @@ class OPScehdulingSimulation:
         self.result_dict = init_result_dict()
         self._init_agents(verbose=verbose)
         patient_schedules = self.environment.patient_schedules if patient_schedules is None else patient_schedules
-        self.client = self.admin_staff_agent.build_agent(
+        client = self.admin_staff_agent.build_agent(
             rule=self.rules, 
             doctor_info=doctor_information,
             patient_schedule_list=patient_schedules,
@@ -618,28 +758,30 @@ class OPScehdulingSimulation:
             log(f"{role:<25}: {patient_response}")
 
             # Rescheduling from staff
+            staff_kwargs.update(kwargs)
             staff_response = self.rescheduling(
+                client=client,
                 patient_intention=patient_response,
+                chat_history=self._to_lc_history('reschedule'),
+                doctor_information=doctor_information,
+                **staff_kwargs
             )
-            # Clarification message instead of tool calling
-            if isinstance(staff_response, str):
-                self.dialog_history['reschedule'].append({"role": "Staff", "content": staff_response})
+            
+            # Clarification message
+            if staff_response['type'] == 'text':
+                response = staff_response['result']
+                self.dialog_history['reschedule'].append({"role": "Staff", "content": response})
                 role = f"{colorstr('blue', 'Staff')}"
-                log(f"{role:<25}: {staff_response}")
+                log(f"{role:<25}: {response}")
 
             # Tool calling result
-            elif isinstance(staff_response, dict):
-                self._update_result_dict(staff_response['result_dict'])
+            elif staff_response['type'] == 'tool':
+                result = staff_response['result']
+                self._update_result_dict(result['result_dict'])
                 if self.result_dict['status'][0] is not False:  # No GT and correct case
-                    original_schedule = staff_response['original_schedule']
-                    staff_kwargs.update(kwargs)
-                    new_schedule = self.scheduling(
-                        known_condition=original_schedule,
-                        doctor_information=doctor_information,
-                        reschedule_flag=True,
-                        **staff_kwargs
-                    )
-
+                    original_schedule = result['original_schedule']
+                    new_schedule = result['new_schedule']
+                    
                     # Save point
                     self.result_dict['dialog'] = [preprocess_dialog(self.dialog_history['reschedule'])]
                     yield {'type': 'simulation', 'original': original_schedule, 'prediction': new_schedule}
@@ -673,19 +815,19 @@ class OPScehdulingSimulation:
                             tmp_prediction_schedule = {k: v for k, v in prediction.items() \
                                                        if k in ['patient', 'attending_physician', 'department', 'date', 'schedule']}
                             
-                            staff_response = f"I've moved your original schedule: {tmp_original_schedule} to the new one: {tmp_prediction_schedule}"
+                            response = f"I've moved your original schedule: {tmp_original_schedule} to the new one: {tmp_prediction_schedule}"
                             
                         else:
                             tmp_original_schedule = {k: v for k, v in original_schedule.items() \
                                                      if k in ['patient', 'attending_physician', 'department', 'date', 'schedule']}
-                            staff_response = f"There are no available times. I've added this schedule to the waiting list: {tmp_original_schedule}"
+                            response = f"There are no available times. I've added this schedule to the waiting list: {tmp_original_schedule}"
                             self.environment.add_waiting_list(pred_idx, verbose)
                             self._branch = False
 
                         #  Final response of staff
-                        self.dialog_history['reschedule'].append({"role": "Staff", "content": staff_response})
+                        self.dialog_history['reschedule'].append({"role": "Staff", "content": response})
                         role = f"{colorstr('blue', 'Staff')}"
-                        log(f"{role:<25}: {staff_response}")
+                        log(f"{role:<25}: {response}")
 
                         # Final response of patient
                         self.dialog_history['reschedule'].append({"role": "Patient", "content": self.end_phrase})
@@ -696,7 +838,7 @@ class OPScehdulingSimulation:
                 
                 else:
                     self.result_dict['dialog'].append(preprocess_dialog(self.dialog_history['reschedule']))
-                    raise ValueError(colorstr("red", "Error: Rescheduling failed despite successful tool call."))
+                    raise ScheduleNotFoundError(colorstr("red", "Error: Schedule not found error."))
             
             else:
                 self.result_dict['dialog'].append(preprocess_dialog(self.dialog_history['reschedule']))
