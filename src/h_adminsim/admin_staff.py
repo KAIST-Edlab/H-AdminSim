@@ -77,7 +77,7 @@ class AdminStaffAgent:
                     model: str,
                     api_key: Optional[str] = None,
                     use_vllm: bool = False,
-                    vllm_endpoint: Optional[str] = None) -> None:
+                    vllm_endpoint: Optional[str] = None):
         """
         Initialize the model and API client based on the specified model type.
 
@@ -116,11 +116,11 @@ class AdminStaffAgent:
                                                                    If not provided, the default user prompt will be used. Defaults to None.
             tool_calling_prompt_path (Optional[str], optional): Path to a custom tool calling prompt file. 
                                                                 If not provided, the default tool calling prompt will be used. Defaults to None.
-        Returns:
-            Tuple[str, str, str, str]: The system prompt, user prompt templates, tool calling prompt, and the only scheduling tool calling prompt.
-
         Raises:
             FileNotFoundError: If the specified system prompt file does not exist.
+            
+        Returns:
+            Tuple[str, str, str, str]: The system prompt, user prompt templates, tool calling prompt, and the only scheduling tool calling prompt.
         """
         # Initialilze with the default system prompt
         if not system_prompt_path:

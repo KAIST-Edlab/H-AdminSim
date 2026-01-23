@@ -121,11 +121,11 @@ class OutpatientFirstIntake(FirstVisitOutpatientTask):
             admin_staff_last_task_user_prompt_path (Optional[str], optional): Path to a custom user prompt file. 
                                                                               If not provided, the default user prompt will be used. Defaults to None.
 
-        Returns:
-            str: The user prompt.
-
         Raises:
             FileNotFoundError: If the specified user prompt file does not exist.
+            
+        Returns:
+            str: The user prompt.
         """
         if not self.use_supervisor:
             if not admin_staff_last_task_user_prompt_path:

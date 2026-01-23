@@ -41,11 +41,11 @@ class DataGenerator:
             care_level (str): Care level used to select the default config.
             config (Optional[Union[str, Config]]): A file path or Config instance.
 
-        Returns:
-            Config: A fully initialized Config object.
-
         Raises:
             TypeError: If `config` is not None, str, or Config.
+            
+        Returns:
+            Config: A fully initialized Config object.
         """
         # Case 1: config is None -> load built-in config based on care_level
         if config is None:

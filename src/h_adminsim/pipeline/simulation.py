@@ -142,7 +142,7 @@ class Simulator:
             simulation_data_path: str,
             output_dir: str,
             resume: bool = False,
-            verbose: bool = False) -> None:
+            verbose: bool = False):
         """
         Run the agent-based hospital administrative simulation.
 

@@ -207,11 +207,11 @@ def generate_random_telecom(min_length: int = 8,
         country_code (str, optional): The ISO country code to determine the dialing prefix. Default is 'KR' (South Korea).
         country_to_dial_map_file (Optional[str], optional): Path to the JSON file mapping country codes to their dialing prefixes. Defaults to None.
 
-    Returns:
-        str: A random telecom number string starting with the country dialing code, followed by a random sequence of digits.
-        
     Raises:
         KeyError: If the provided country_code is not found in the dialing code registry.
+
+    Returns:
+        str: A random telecom number string starting with the country dialing code, followed by a random sequence of digits.
     """
     if country_to_dial_map_file == None:
         country_to_dial_map_file = str(resources.files("h_adminsim.assets.country").joinpath("country_code.json"))
@@ -287,11 +287,11 @@ def generate_random_code(category: str) -> str:
     Args:
         category (str): The category for which to generate a code. Must be one of ['use', 'gender'].
 
-    Returns:
-        str: A randomly selected code corresponding to the given category.
-
     Raises:
         AssertionError: If the category is not one of the supported values.
+        
+    Returns:
+        str: A randomly selected code corresponding to the given category.
     """
     categories = ['use', 'gender']
     assert category in categories, log(f"The category must be one of the values in the {categories}, but got {category}", "error")

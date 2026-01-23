@@ -158,11 +158,11 @@ def str_to_datetime(iso_time: Union[str, datetime]) -> datetime:
     Args:
         iso_time (Union[str, datetime]): The input date/time, either as a string in the specified format or as a datetime/date object.
 
-    Returns:
-        datetime: A datetime object corresponding to the input string, or the original datetime/date if already provided.
-
     Raises:
         ValueError: If `iso_time` is not a string or datetime/date object.
+
+    Returns:
+        datetime: A datetime object corresponding to the input string, or the original datetime/date if already provided.
     """
     try:
         if isinstance(iso_time, str): 
@@ -183,11 +183,11 @@ def datetime_to_str(iso_time: Union[str, datetime], format: str) -> str:
         format (str): The format string used to convert the datetime object to a string 
                       (e.g., "%Y-%m-%d" or "%Y-%m-%dT%H:%M:%S").
 
-    Returns:
-        str: The formatted string representation of the datetime, or the original string if input was a string.
-
     Raises:
         ValueError: If `iso_time` is neither a string nor a datetime object.
+
+    Returns:
+        str: The formatted string representation of the datetime, or the original string if input was a string.
     """
     try:
         if not isinstance(iso_time, str): 
@@ -288,11 +288,11 @@ def get_iso_time(time_hour: Union[int, float],
         date (Optional[Union[str, datetime]], optional): Date string in 'YYYY-MM-DD' format. Defaults to today's date.
         utc_offset (Optional[str], optional): UTC offset in '+HH:MM' or '-HH:MM' format. Defaults to no offset.
 
-    Returns:
-        str: ISO 8601 formatted datetime string.
-
     Raises:
         ValueError: If the `date` format is invalid.
+
+    Returns:
+        str: ISO 8601 formatted datetime string.
     """
     if date == None:
         date = datetime_to_str(datetime.today(), '%Y-%m-%d')
@@ -356,11 +356,11 @@ def generate_random_iso_time_between(min_iso_time: Union[str, datetime],
         max_iso_time (Union[str, datetime]): The upper bound ISO 8601 time string (exclusive).
         epsilon (float, optional): Small buffer to exclude both bounds. Defaults to 1e-6 seconds.
 
-    Returns:
-        str: A randomly generated ISO 8601 time string within the specified range.
-
     Raises:
         ValueError: If min_iso_time is not earlier than max_iso_time or epsilon is too large.
+        
+    Returns:
+        str: A randomly generated ISO 8601 time string within the specified range.
     """
     min_dt, max_dt = str_to_datetime(min_iso_time), str_to_datetime(max_iso_time)
 

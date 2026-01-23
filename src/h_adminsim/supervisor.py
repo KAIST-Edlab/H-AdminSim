@@ -55,7 +55,7 @@ class SupervisorAgent:
                     api_key: Optional[str] = None,
                     use_vllm: bool = False,
                     vllm_endpoint: Optional[str] = None,
-                    reasoning_effort: str = 'low') -> None:
+                    reasoning_effort: str = 'low'):
         """
         Initialize the model and API client based on the specified model type.
 
@@ -103,11 +103,11 @@ class SupervisorAgent:
                                                           If not provided, the default system prompt will be used. Defaults to None.
             user_prompt_path (Optional[str], optional): Path to a custom user prompt file. 
                                                         If not provided, the default user prompt will be used. Defaults to None.
-        Returns:
-            Tuple[str, str]: The system prompt and user prompt templates.
-
         Raises:
             FileNotFoundError: If the specified system prompt file does not exist.
+            
+        Returns:
+            Tuple[str, str]: The system prompt and user prompt templates.
         """
         # Initialilze with the default system prompt
         if not system_prompt_path:
