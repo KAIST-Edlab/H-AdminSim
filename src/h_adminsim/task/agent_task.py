@@ -922,13 +922,13 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         
         ## Simulate the resecheduling requests
         if random.random() < self.request_early_schedule_prob:
-            updated_doctor_information, result_dict = self.rescheduling_request(
+            doctor_information, result_dict = self.rescheduling_request(
                 doctor_information=doctor_information,
                 environment=environment, 
                 verbose=verbose
             )
             if result_dict is not None:
-                agent_test_data['doctor'] = updated_doctor_information
+                agent_test_data['doctor'] = doctor_information
                 results['gt'].extend(result_dict['gt'])
                 results['pred'].extend(result_dict['pred'])
                 results['status'].extend(result_dict['status'])
