@@ -907,7 +907,7 @@ class OPScehdulingSimulation:
                             response = f"There are no available times. I've added this schedule to the waiting list: {tmp_original_schedule}"
                         
                         # Successfully rescheduled case
-                        elif staff_response['tmp_flag'] == 'rescheduled':
+                        elif staff_response['tmp_flag'] == 'reschedule':
                             result_dict = result['result_dict']
                             tmp_prediction_schedule = {k: v for k, v in result['new_schedule'].items() \
                                                        if k in ['patient', 'attending_physician', 'department', 'date', 'schedule']}
