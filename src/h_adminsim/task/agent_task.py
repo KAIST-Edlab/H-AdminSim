@@ -927,7 +927,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                 environment=environment, 
                 verbose=verbose
             )
-            if updated_doctor_information is not None:
+            if result_dict is not None:
                 agent_test_data['doctor'] = updated_doctor_information
                 results['gt'].extend(result_dict['gt'])
                 results['pred'].extend(result_dict['pred'])
