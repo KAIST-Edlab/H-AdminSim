@@ -205,6 +205,87 @@ class OPScehdulingSimulation:
             self.patient_agent.client.histories[0]['content'][0]['text'] = system_prompt
 
 
+    def _get_rescheduled_result(self,
+                                known_condition: dict,
+                                doctor_information: Optional[dict] = None,
+                                **kwargs) -> dict:
+        """
+        Reschedule with the only scheduling tools.
+
+        Args:
+            known_condition (dict): Patient conditions known to the staff.
+            doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
+                                                           including availability and other relevant details. Defaults to None.
+
+        Returns:
+            dict: Rescheduled schedule.
+        """
+        # Sanity check
+        if not self.fhir_integration:
+            assert doctor_information is not None, log(f"Doctor information must be provided if you don't use FHIR.", level="error")
+
+        filtered_doctor_information = self.environment.get_doctor_schedule(
+            doctor_information=doctor_information if not self.fhir_integration else None,
+            department=known_condition['department'],
+            fhir_integration=self.fhir_integration,
+        )
+        _schedule_client = self.admin_staff_agent.build_agent(
+            rule=self.rules, 
+            doctor_info=filtered_doctor_information,
+            only_schedule_tool=True
+        )
+        new_schedule = self.scheduling(
+            client=_schedule_client,
+            known_condition=known_condition,
+            doctor_information=doctor_information,
+            reschedule_flag=True,
+            **kwargs
+        )['result']
+        return new_schedule
+    
+    
+    def _check_reschedule_validity(self,
+                                   idx: int,
+                                   new_schedule: dict,
+                                   original_schedule: dict,
+                                   doctor_information: dict) -> Optional[dict]:
+        """
+        Check the rescheduling availability.
+
+        Args:
+            idx (int): Index of the requested schedule (original schedule index).
+            new_schedule (dict): New earliest schedule available.
+            original_schedule (dict): The original schedule.
+            doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
+                                                           including availability and other relevant details.
+
+        Returns:
+            Optional[dict]: New schedule if the rescheduling available; otherwise None.
+        """
+        pred_doctor_name = list(new_schedule['schedule'].keys())[0]
+        old_iso_time = get_iso_time(original_schedule['schedule'][0], original_schedule['date'])
+        new_iso_time = get_iso_time(new_schedule['schedule'][pred_doctor_name]['start'], new_schedule['schedule'][pred_doctor_name]['date'])
+        if compare_iso_time(old_iso_time, new_iso_time):
+            self.rules.cancel_schedule(idx, doctor_information, original_schedule)
+            final_schedule = {
+                'patient': original_schedule['patient'],
+                'attending_physician': pred_doctor_name,
+                'department': original_schedule['department'],
+                'date': new_schedule['schedule'][pred_doctor_name]['date'],
+                'schedule': [
+                    new_schedule['schedule'][pred_doctor_name]['start'], 
+                    new_schedule['schedule'][pred_doctor_name]['end']
+                ],
+                'patient_intention': original_schedule['patient_intention'],
+                'preference': original_schedule.get('preference'),
+                'preferred_doctor': original_schedule.get('preferred_doctor'),
+                'valid_from': original_schedule.get('valid_from'),
+                'last_updated_time': self.environment.current_time
+            }
+            return final_schedule
+        return None
+
+
     def scheduling(self,
                    client: AgentExecutor,
                    known_condition: dict,
@@ -408,23 +489,11 @@ class OPScehdulingSimulation:
                     return prediction
 
                 # Step 2: Try to reschedule based on the patient record (or the memo)
-                filtered_doctor_information = self.environment.get_doctor_schedule(
-                    doctor_information=doctor_information if not self.fhir_integration else None,
-                    department=original_schedule['department'],
-                    fhir_integration=self.fhir_integration,
-                )
-                _schedule_client = self.admin_staff_agent.build_agent(
-                    rule=self.rules, 
-                    doctor_info=filtered_doctor_information,
-                    only_schedule_tool=True
-                )
-                new_schedule = self.scheduling(
-                    client=_schedule_client,
+                new_schedule = self._get_rescheduled_result(
                     known_condition=original_schedule,
                     doctor_information=doctor_information,
-                    reschedule_flag=True,
                     **kwargs
-                )['result']
+                )
                 prediction['result']['new_schedule'] = new_schedule
 
                 # Sanity check
@@ -447,30 +516,16 @@ class OPScehdulingSimulation:
                 try:
                     # Successful case
                     pred_idx = prediction['result']['result_dict']['pred'][0]['reschedule']
-                    pred_doctor_name = list(new_schedule['schedule'].keys())[0]
-                    old_iso_time = get_iso_time(original_schedule['schedule'][0], original_schedule['date'])
-                    new_iso_time = get_iso_time(new_schedule['schedule'][pred_doctor_name]['start'], new_schedule['schedule'][pred_doctor_name]['date'])
-                    if compare_iso_time(old_iso_time, new_iso_time):
-                        self.rules.cancel_schedule(pred_idx, doctor_information, original_schedule)
-                        final_schedule = {
-                            'patient': original_schedule['patient'],
-                            'attending_physician': pred_doctor_name,
-                            'department': original_schedule['department'],
-                            'date': new_schedule['schedule'][pred_doctor_name]['date'],
-                            'schedule': [
-                                new_schedule['schedule'][pred_doctor_name]['start'], 
-                                new_schedule['schedule'][pred_doctor_name]['end']
-                            ],
-                            'patient_intention': original_schedule['patient_intention'],
-                            'preference': original_schedule.get('preference'),
-                            'preferred_doctor': original_schedule.get('preferred_doctor'),
-                            'valid_from': original_schedule.get('valid_from'),
-                            'last_updated_time': self.environment.current_time
-                        }
+                    final_schedule = self._check_reschedule_validity(
+                        idx=pred_idx,
+                        new_schedule=new_schedule,
+                        original_schedule=original_schedule,
+                        doctor_information=doctor_information,
+                    )
+                    if final_schedule is not None:
                         prediction['result']['new_schedule'] = final_schedule
                         prediction['result']['result_dict']['pred'] = [final_schedule]
                         prediction['tmp_flag'] = 'reschedule'
-
                     else:
                         self.environment.add_waiting_list(pred_idx, True)
                         prediction['tmp_flag'] = 'waiting_list'
