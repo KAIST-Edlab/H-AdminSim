@@ -39,7 +39,7 @@ class Evaluator:
         # Macro-wise evaluation
         log('--------------Macro-wise Evaluation--------------')
         for task, value in aggregated_results.items():
-            accuracies = [sum(status) / len(status) * 100 for status in value['status']]
+            accuracies = [sum(x if isinstance(x, bool) else sum(x) for x in status) / sum(1 if isinstance(x, bool) else len(x) for x in status) * 100 for status in value['status']]
             avg_accuracy = sum(accuracies) / len(accuracies)
             stdv = round((sum((x - avg_accuracy) ** 2 for x in accuracies) / len(accuracies)) ** 0.5, 2) if len(accuracies) > 1 else 0.0
             log(f'{colorstr(task):<27} | average accuracy: {colorstr("green", f"{avg_accuracy:.2f}% ± {stdv}")}, files: {len(accuracies)}')
@@ -51,8 +51,8 @@ class Evaluator:
         log('--------------Micro-wise Evaluation--------------')
         fail_data_dict = dict()
         for task, value in aggregated_results.items():
-            status = sum(value['status'], [])
-            status_code = sum(value['status_code'], [])
+            status = [x for y in sum(value['status'], []) for x in (y if isinstance(y, list) or isinstance(y, tuple) else [y])]
+            status_code = [x for y in sum(value['status_code'], []) for x in (y if isinstance(y, list) or isinstance(y, tuple) else [y])]
             accuracy = sum(status) / len(status) * 100
             failed_cases = [c for s, c in zip(status, status_code) if not s]
             error_rate = (len(failed_cases) / len(status)) * 100

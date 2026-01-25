@@ -271,7 +271,7 @@ class OPScehdulingSimulation:
                 raise TypeError(colorstr("red", "Error: Unexpected return type from scheduling method."))
 
         # If tool calling fails, fallback to LLM-based scheduling
-        except ToolCallingError:
+        except:
             log('Failed to select an appropriate tool. Falling back to reasoning-based scheduling.', level='warning')
             reschedule_desc = "Rescheduling requested. This is the rescheduling of a patient who wishes to move their appointment earlier due to a previous patient's cancelled reservation" \
                 if reschedule_flag else 'Not requested.'
@@ -287,7 +287,7 @@ class OPScehdulingSimulation:
                 TIME_UNIT=self._TIME_UNIT,
                 CURRENT_TIME=self.environment.current_time,
                 DEPARTMENT=department,
-                PREFERENCE=known_condition['patient_intention'],
+                PREFERENCE=preprocess_dialog(self.dialog_history['scheduling']),
                 RESCHEDULING_FLAG=reschedule_desc,
                 DAY=self._DAY,
                 DOCTOR=json.dumps(filtered_doctor_information, indent=2),
@@ -302,7 +302,11 @@ class OPScehdulingSimulation:
                 strategy='llm',
                 data=schedule,
             )
-            prediction['result'] = schedule
+            prediction = {
+                'type': 'tool',
+                'result': schedule,
+                'raw': None
+            }
             self.admin_staff_agent.reset_history(verbose=False)
 
         return prediction

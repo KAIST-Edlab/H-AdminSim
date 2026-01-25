@@ -13,7 +13,7 @@ Respond in JSON format only, as shown in the example below.
 ## Patient information:
 * Department: {DEPARTMENT}
 * Patient duration: You must schedule according to each doctor’s outpatient consultation duration. (Unit: hours)
-* Patient utterance expressing scheduling preference: {PREFERENCE}
+* Conversation about the scheduling preference: {PREFERENCE}
 * Rescheduling request: {RESCHEDULING_FLAG}
 * Tips:
     * Physician constraint case: If the patient explicitly mentions a preferred doctor in their utterance, you must schedule the earliest available appointment with that doctor.

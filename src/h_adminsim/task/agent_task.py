@@ -632,7 +632,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
 
                 if result_dict['status'][0] is not False:   # No GT and correct case
                     if 'patient' in result_dict['pred'][0]:
-                        new_schedule = result_dict['status'][0]
+                        new_schedule = result_dict['pred'][0]
                         doctor_information[new_schedule['attending_physician']]['schedule'][new_schedule['date']].append(new_schedule['schedule'])
                         doctor_information[new_schedule['attending_physician']]['schedule'][new_schedule['date']].sort()
                         self.update_env(
