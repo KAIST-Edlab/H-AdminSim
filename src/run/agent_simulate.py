@@ -126,6 +126,7 @@ def main(args):
             schedule_cancellation_prob=config.schedule_cancellation_prob,
             request_early_schedule_prob=config.request_early_schedule_prob,
             fhir_integration=config.integration_with_fhir,
+            scheduling_strategy=config.schedule_task.scheduling_strategy,
             patient_vllm_endpoint=config.vllm_url if use_vllm else None,
             admin_staff_vllm_endpoint=config.vllm_url if use_vllm else None
         ))

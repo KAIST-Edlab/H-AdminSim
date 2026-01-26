@@ -91,6 +91,7 @@ def main(args):
             schedule_cancellation_prob=s_config.schedule_cancellation_prob,
             request_early_schedule_prob=s_config.request_early_schedule_prob,
             fhir_integration=s_config.integration_with_fhir,
+            scheduling_strategy=s_config.schedule_task.scheduling_strategy,
             patient_vllm_endpoint=s_config.vllm_url if use_vllm else None,
             admin_staff_vllm_endpoint=s_config.vllm_url if use_vllm else None
         )

@@ -17,7 +17,7 @@ fhir_max_connection_retries: 5          # Maximum number of retry attempts when 
 schedule_cancellation_prob: 0.05
 request_early_schedule_prob: 0.1
 
-# Prompt paths
+# Simulation conditions
 outpatient_intake:
     use_supervisor: False
     intake_max_inference: 5
