@@ -456,6 +456,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             metadata=self._metadata,
             department_data=self._department_data,
             environment=environment,
+            scheduling_strategy=self.scheduling_strategy,
             preference_rejection_prob=self.preference_rejection_prob,
             preferene_rejection_prob_decay=self.preferene_rejection_prob_decay,
             fhir_integration=self.fhir_integration,

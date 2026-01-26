@@ -27,6 +27,7 @@ class OPScehdulingSimulation:
                  metadata: dict,
                  department_data: dict,
                  environment: HospitalEnvironment,
+                 scheduling_strategy: str = 'tool_calling',
                  preference_rejection_prob: float = 0.3,
                  preferene_rejection_prob_decay: float = 0.5,
                  fhir_integration: bool = False,
@@ -42,6 +43,7 @@ class OPScehdulingSimulation:
         self._END_HOUR = metadata['time']['end_hour']
         self._TIME_UNIT = metadata['time']['interval_hour']
         self._DAY = metadata['days']
+        self.scheduling_strategy = scheduling_strategy
         self.preference_rejection_prob = preference_rejection_prob
         self.preferene_rejection_prob_decay = preferene_rejection_prob_decay
         self.fhir_integration = fhir_integration
@@ -398,6 +400,8 @@ class OPScehdulingSimulation:
         
         # First, try to use the tool calling
         try:
+            assert self.scheduling_strategy == 'tool_calling', log('Scheduling strategy is set to `reasoning`, directly use the reasoning method.', level='warning')
+            
             # Invoke
             prediction = scheduling_tool_calling(
                 client=client, 
@@ -426,7 +430,9 @@ class OPScehdulingSimulation:
 
         # If tool calling fails, fallback to LLM-based scheduling
         except:
-            log('Failed to select an appropriate tool. Falling back to reasoning-based scheduling.', level='warning')
+            if self.scheduling_strategy == 'tool_calling':
+                log('Failed to select an appropriate tool. Falling back to reasoning-based scheduling.', level='warning')
+            
             reschedule_desc = "Rescheduling requested. This is the rescheduling of a patient who wishes to move their appointment earlier due to a previous patient's cancelled reservation" \
                 if reschedule_flag else 'Not requested.'
             filtered_doctor_information = self.environment.get_doctor_schedule(
@@ -441,7 +447,7 @@ class OPScehdulingSimulation:
                 TIME_UNIT=self._TIME_UNIT,
                 CURRENT_TIME=self.environment.current_time,
                 DEPARTMENT=department,
-                PREFERENCE=preprocess_dialog(self.dialog_history['scheduling']),
+                PREFERENCE=known_condition['patient_intention'] if reschedule_flag else preprocess_dialog(self.dialog_history['scheduling']),
                 RESCHEDULING_FLAG=reschedule_desc,
                 DAY=self._DAY,
                 DOCTOR=json.dumps(filtered_doctor_information, indent=2),
