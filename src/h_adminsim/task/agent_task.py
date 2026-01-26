@@ -664,78 +664,31 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         Returns:
             Tuple[dict, dict]: Updated doctor information and a result dictionary.
         """
-        result_dict = init_result_dict()
-        for turn, (idx, original) in enumerate(environment.waiting_list):
-            if original['status'] == 'scheduled':
-                filtered_doctor_information = environment.get_doctor_schedule(
-                    doctor_information=doctor_information if not self.fhir_integration else None,
-                    department=original['department'],
-                    fhir_integration=self.fhir_integration,
-                )
-                _schedule_client = self.admin_staff_agent.build_agent(
-                    rule=self.rules, 
-                    doctor_info=filtered_doctor_information,
-                    only_schedule_tool=True
-                )
-                prediction = sim_environment.scheduling(
-                    client=_schedule_client,
-                    known_condition=original,
-                    doctor_information=doctor_information,
-                    reschedule_flag=True,
-                    **self.staff_reasoning_kwargs,
-                )['result']
+        all_result_dict = init_result_dict()
+        for result in sim_environment.automatic_waiting_list_update(
+            doctor_information=doctor_information,
+            **self.staff_reasoning_kwargs,
+        ):
+            doctor_information, result_dict = result['doctor_information'], result['result_dict']
 
-                status, status_code = self.sanity_checker.schedule_check(
-                    prediction, 
-                    original,
-                    doctor_information,
-                    environment
+            if result_dict['status'][0]:
+                new_schedule, original = result_dict['pred'][0], result['original']
+                doctor_information[new_schedule['attending_physician']]['schedule'][new_schedule['date']].append(new_schedule['schedule'])
+                doctor_information[new_schedule['attending_physician']]['schedule'][new_schedule['date']].sort()
+                self.update_env(
+                    status=True,
+                    prediction=new_schedule,
+                    environment=environment,
                 )
+                log(f'{colorstr("[RESCHEDULED]")}: {original} is rescheduled to {new_schedule}')
 
-                if status:
-                    pred_doctor_name = list(prediction['schedule'].keys())[0]
-                    old_iso_time = get_iso_time(original['schedule'][0], original['date'])
-                    new_iso_time = get_iso_time(prediction['schedule'][pred_doctor_name]['start'], prediction['schedule'][pred_doctor_name]['date'])
-                    
-                    if compare_iso_time(old_iso_time, new_iso_time):
-                        doctor_information = self.rules.cancel_schedule(idx, doctor_information, original)
-                        prediction = {
-                            'patient': original['patient'],
-                            'attending_physician': pred_doctor_name,
-                            'department': original['department'],
-                            'date': prediction['schedule'][pred_doctor_name]['date'],
-                            'schedule': [
-                                prediction['schedule'][pred_doctor_name]['start'], 
-                                prediction['schedule'][pred_doctor_name]['end']
-                            ],
-                            'patient_intention': original['patient_intention'],
-                            'preference': original.get('preference'),
-                            'preferred_doctor': original.get('preferred_doctor'),
-                            'valid_from': original.get('valid_from'),
-                            'last_updated_time': environment.current_time
-                        }
-                        doctor_information[prediction['attending_physician']]['schedule'][prediction['date']].append(prediction['schedule'])
-                        doctor_information[prediction['attending_physician']]['schedule'][prediction['date']].sort()
-                        self.update_env(
-                            status=status,
-                            prediction=prediction,
-                            environment=environment,
-                        )
-                        result_dict['gt'].append('automatic rescheduling')
-                        result_dict['pred'].append(prediction)
-                        result_dict['status'].append(True)
-                        result_dict['status_code'].append(STATUS_CODES['correct'])
-                        result_dict['dialog'].append('automatic waiting list update from the system')
-                        log(f'{colorstr("[RESCHEDULED]")}: {original} is rescheduled to {prediction}')
-                
-                else:
-                    result_dict['gt'].append('automatic rescheduling')
-                    result_dict['pred'].append(prediction)
-                    result_dict['status'].append(status)
-                    result_dict['status_code'].append(STATUS_CODES['reschedule']['schedule'].format(status_code=status_code))
-                    result_dict['dialog'].append('automatic waiting list update from the system')
-        
-        return doctor_information, result_dict
+            all_result_dict['gt'].extend(result_dict['gt'])
+            all_result_dict['pred'].extend(result_dict['pred'])
+            all_result_dict['status'].extend(result_dict['status'])
+            all_result_dict['status_code'].extend(result_dict['status_code'])
+            all_result_dict['dialog'].extend(result_dict['dialog'])
+
+        return doctor_information, all_result_dict
                    
 
     def update_env(self, 

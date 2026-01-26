@@ -284,6 +284,79 @@ class OPScehdulingSimulation:
             }
             return final_schedule
         return None
+    
+
+    def automatic_waiting_list_update(self,
+                                      doctor_information: dict,
+                                      **kwargs):
+        """
+        Update waiting list availability automatically.
+
+        Args:
+            doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
+                                                           including availability and other relevant details.
+
+        Yields:
+            dict: Updated (or not updated) doctor information and a result dictionary.
+        """
+        for turn, (idx, original) in enumerate(self.environment.waiting_list):
+            if original['status'] == 'scheduled':
+                new_schedule = self._get_rescheduled_result(
+                    known_condition=original,
+                    doctor_information=doctor_information,
+                    **kwargs
+                )
+
+                # Sanity check
+                ## No GT case
+                if self.sanity_checker is None:
+                    status, status_code = True, STATUS_CODES['correct']
+                else:
+                    status, status_code = self.sanity_checker.schedule_check(
+                        prediction=new_schedule,
+                        gt_patient_condition=original,
+                        doctor_information=doctor_information,
+                        environment=self.environment
+                    )
+                
+                if status:
+                    try:
+                        final_schedule = self._check_reschedule_validity(
+                            idx=idx,
+                            new_schedule=new_schedule,
+                            original_schedule=original,
+                            doctor_information=doctor_information,
+                        )
+                        if final_schedule is not None:
+                            result_dict = {
+                                'gt': ['automatic rescheduling'],
+                                'pred': [final_schedule],
+                                'status': [True],
+                                'status_code': [STATUS_CODES['correct']],
+                                'dialog': ['automatic waiting list update from the system']
+                            }
+                            yield {'doctor_information': doctor_information, 'result_dict': result_dict, 'original': original}
+
+                    except:
+                        log('No sanity checker is available; an error occurred while parsing the prediction. Returning a failure result.', level='warning')
+                        result_dict = {
+                            'gt': ['automatic rescheduling'],
+                            'pred': [new_schedule],
+                            'status': [False],
+                            'status_code': [STATUS_CODES['reschedule']['schedule'].format(status_code=STATUS_CODES['format'])],
+                            'dialog': ['automatic waiting list update from the system']
+                        }
+                        yield {'doctor_information': doctor_information, 'result_dict': result_dict, 'original': original}
+
+                else:
+                    result_dict = {
+                        'gt': ['automatic rescheduling'],
+                        'pred': [new_schedule],
+                        'status': [status],
+                        'status_code': [STATUS_CODES['reschedule']['schedule'].format(status_code=status_code)],
+                        'dialog': ['automatic waiting list update from the system']
+                    }
+                    yield {'doctor_information': doctor_information, 'result_dict': result_dict, 'original': original}
 
 
     def scheduling(self,
