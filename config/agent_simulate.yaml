@@ -16,20 +16,10 @@ booking_days_before_simulation: 3       # Number of days before the simulation d
 fhir_max_connection_retries: 5          # Maximum number of retry attempts when retrieving data from the FHIR server
 schedule_cancellation_prob: 0.05
 request_early_schedule_prob: 0.1
-intake_max_inference: 5
 
 # Prompt paths
 outpatient_intake:
     use_supervisor: False
-    staff_task_user_prompt: assets/prompts/intake_staff_task_user.txt
-    supervisor_system_prompt: assets/prompts/intake_supervisor_system.txt
-    supervisor_user_prompt: assets/prompts/intake_supervisor_user.txt
+    intake_max_inference: 5
 schedule_task:
-    scheduling_strategy: llm   # ['llm', 'tool_calling', 'rule'], If you set 'tool_calling' or 'rule', use_supervisor will be ignored.
-    use_supervisor: False
-    max_feedback_number: 5
-    supervisor_system_prompt: assets/prompts/schedule_supervisor_system.txt
-    supervisor_user_prompt: assets/prompts/schedule_supervisor_user.txt
-    task_system_prompt: assets/prompts/schedule_task_system.txt
-    task_user_prompt: assets/prompts/schedule_task_user.txt
-    tool_calling_prompt: assets/prompts/schedule_tool_calling_system.txt
+    scheduling_strategy: tool_calling   # ['llm', 'tool_calling', 'rule'], If you set 'tool_calling' or 'rule', use_supervisor will be ignored.

@@ -131,7 +131,7 @@ class OPScehdulingSimulation:
         otherwise, returns the original string.
 
         Args:
-            strategy (str): Scheduling strategy. It must be either `llm` or `tool_calling`.
+            strategy (str): Scheduling strategy. It must be either `reasoning` or `tool_calling`.
             data (Union[str, dict]): The text output to post-process, potentially a JSON-formatted string. 
             filtered_doctor_information (Optional[dict], optional): Department-filtered doctor information 
                                                                     to postprocess the schedule by tool_calling strategy.
@@ -139,7 +139,7 @@ class OPScehdulingSimulation:
         Returns:
             Union[str, dict]: A dictionary if the text is valid JSON, otherwise the original string.
         """
-        if strategy == 'llm':
+        if strategy == 'reasoning':
             try:
                 if isinstance(data, str):
                     match = re.search(r'```json\s*(\{.*?\})\s*```', data, re.DOTALL)
@@ -453,7 +453,7 @@ class OPScehdulingSimulation:
                 **kwargs,
             )
             schedule = self.postprocessing(
-                strategy='llm',
+                strategy='reasoning',
                 data=schedule,
             )
             prediction = {

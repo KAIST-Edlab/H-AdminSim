@@ -380,6 +380,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                  preferene_rejection_prob_decay: float = 0.5,
                  fhir_integration: bool = False,
                  scheduling_max_inference: int = 5,
+                 scheduling_strategy: str = 'tool_calling',
                  max_retries: int = 8,
                  patient_vllm_endpoint: Optional[str] = None,
                  admin_staff_vllm_endpoint: Optional[str] = None):
@@ -414,6 +415,9 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         self.fhir_integration = fhir_integration
         self.max_retries = max_retries
         self.max_inferences = scheduling_max_inference
+        self.scheduling_strategy = scheduling_strategy
+        assert self.scheduling_strategy in ['reasoning', 'tool_calling'], \
+            log('Scheduling strategy must be either `reasoning` or `tool_calling`.', 'error')
         self.schedule_patient_system_prompt_path = str(resources.files("h_adminsim.assets.prompts").joinpath('schedule_patient_system.txt'))
         self.cancel_patient_system_prompt_path = str(resources.files("h_adminsim.assets.prompts").joinpath('cancel_patient_system.txt'))
         self.reschedule_patient_system_prompt_path = str(resources.files("h_adminsim.assets.prompts").joinpath('reschedule_patient_system.txt'))

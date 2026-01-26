@@ -78,7 +78,7 @@ def main(args):
             patient_model=s_config.task_model,
             admin_staff_model=s_config.task_model,
             supervisor_agent=supervisor_agent if s_config.outpatient_intake.use_supervisor else None,
-            intake_max_inference=s_config.intake_max_inference,
+            intake_max_inference=s_config.outpatient_intake.intake_max_inference,
             patient_vllm_endpoint=s_config.vllm_url if use_vllm else None,
             admin_staff_vllm_endpoint=s_config.vllm_url if use_vllm else None
         )
