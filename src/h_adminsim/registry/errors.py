@@ -15,7 +15,6 @@ STATUS_CODES = {
         'asap': 'not earliest schedule',
         'date': 'not valid date',
     },
-    'tool': 'wrong tool selection or wrong type of argument',
     'cancel': {
         'identify': 'cancel: fail to identify requested schedule',
         'type': 'cancel: unexpected tool calling result'
@@ -25,7 +24,6 @@ STATUS_CODES = {
         'schedule': 'reschedule: {status_code}',
         'type': 'reschedule: unexpected tool calling result'
     },
-    'waiting list': 'fail to add to waiting list',
     'preceding': 'preceding task failed',
     'unexpected': "unexpected error: {e}",
     'correct': 'pass',

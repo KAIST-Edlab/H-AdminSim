@@ -633,6 +633,7 @@ class OPScehdulingSimulation:
                             staff_known_data: dict,
                             doctor_information: Optional[dict] = None,
                             verbose: bool = False,
+                            max_inferences: int = 5,
                             patient_kwargs: dict = {},
                             staff_kwargs: dict = {},
                             **kwargs) -> Tuple[dict, dict]:
@@ -645,6 +646,7 @@ class OPScehdulingSimulation:
             doctor_information (Optional[dict], optional): A dictionary containing information about the doctor(s) involved, 
                                                            including availability and other relevant details. Defaults to None.
             verbose (bool, optional): Whether to log detailed simulation outputs. Defaults to False.
+            max_inferences (int, optional): Maximum number of dialogue turns.
             patient_kwargs (dict, optional): Additional keyword arguments passed to the patient agent.
             staff_kwargs (dict, optional): Additional keyword arguments passed to the staff scheduling function.
             **kwargs: Shared keyword arguments passed to both agents.
@@ -688,6 +690,7 @@ class OPScehdulingSimulation:
                     rejected_preference=gt_data[i-1]['preference']
                 )
 
+            tries = 0
             while 1:
                 # Obtain response from patient
                 patient_kwargs.update(kwargs)
@@ -727,6 +730,17 @@ class OPScehdulingSimulation:
                     role = f"{colorstr('blue', 'Staff')}"
                     log(f"{role:<25}: {response}")
                     break
+                
+                tries += 1
+                if tries > max_inferences:
+                    result_dict = {
+                        'gt': [gt_patient_condition],
+                        'pred': [None],
+                        'status': [False],
+                        'status_code': [STATUS_CODES['simulation']],
+                        'dialog': [preprocess_dialog(self.dialog_history['scheduling'])]
+                    }
+                    return doctor_information, result_dict
             
             # Sanity check
             ## No GT case
