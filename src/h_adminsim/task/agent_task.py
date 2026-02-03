@@ -376,7 +376,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
                  schedule_cancellation_prob: float = 0.05,
                  request_early_schedule_prob: float = 0.1,
                  preference_rejection_prob: float = 0.3,
-                 preferene_rejection_prob_decay: float = 0.5,
+                 preference_rejection_prob_decay: float = 0.5,
                  fhir_integration: bool = False,
                  scheduling_max_inference: int = 5,
                  scheduling_strategy: str = 'tool_calling',
@@ -408,7 +408,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
         self.schedule_cancellation_prob = schedule_cancellation_prob
         self.request_early_schedule_prob = request_early_schedule_prob
         self.preference_rejection_prob = preference_rejection_prob
-        self.preferene_rejection_prob_decay = preferene_rejection_prob_decay
+        self.preference_rejection_prob_decay = preference_rejection_prob_decay
 
         # Others
         self.fhir_integration = fhir_integration
@@ -457,7 +457,7 @@ class OutpatientFirstScheduling(FirstVisitOutpatientTask):
             environment=environment,
             scheduling_strategy=self.scheduling_strategy,
             preference_rejection_prob=self.preference_rejection_prob,
-            preferene_rejection_prob_decay=self.preferene_rejection_prob_decay,
+            preference_rejection_prob_decay=self.preference_rejection_prob_decay,
             fhir_integration=self.fhir_integration,
             sanity_checker=self.sanity_checker, 
         )

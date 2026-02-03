@@ -29,7 +29,7 @@ class OPScehdulingSimulation:
                  environment: HospitalEnvironment,
                  scheduling_strategy: str = 'tool_calling',
                  preference_rejection_prob: float = 0.3,
-                 preferene_rejection_prob_decay: float = 0.5,
+                 preference_rejection_prob_decay: float = 0.5,
                  fhir_integration: bool = False,
                  schedule_rejection_prompt_path: Optional[str] = None,
                  sanity_checker: Optional[SanityChecker] = None):
@@ -45,7 +45,7 @@ class OPScehdulingSimulation:
         self._DAY = metadata['days']
         self.scheduling_strategy = scheduling_strategy
         self.preference_rejection_prob = preference_rejection_prob
-        self.preferene_rejection_prob_decay = preferene_rejection_prob_decay
+        self.preference_rejection_prob_decay = preference_rejection_prob_decay
         self.fhir_integration = fhir_integration
         self.rejection_system_prompt_template = self._init_prompt(schedule_rejection_prompt_path)
         self.sanity_checker = sanity_checker
@@ -761,7 +761,7 @@ class OPScehdulingSimulation:
             # Preference rejection logic
             ## Rejection case
             if random.random() < preference_reject_prob and i != len(gt_data) - 1:
-                preference_reject_prob *= self.preferene_rejection_prob_decay
+                preference_reject_prob *= self.preference_rejection_prob_decay
             ## Non-rejection case
             else:
                 self.dialog_history['scheduling'].append({"role": "Patient", "content": self.end_phrase})
