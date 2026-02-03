@@ -17,7 +17,6 @@ from h_adminsim.environment.hospital import HospitalEnvironment
 from h_adminsim.environment import OPScehdulingSimulation as OPFVScheduleSimulation
 from h_adminsim.tools.sanity_checker import SanityChecker
 from h_adminsim.tools import DataConverter, SchedulingRule
-from h_adminsim.registry.errors import ScheduleNotFoundError
 from h_adminsim.registry import STATUS_CODES, PREFERENCE_PHRASE_PATIENT
 from h_adminsim.utils import colorstr, log
 from h_adminsim.utils.fhir_utils import *
