@@ -51,6 +51,7 @@ We simulate realistic scheduling interactions between administrative staff and p
 * **Time flow**: Users can define the simulation period and starting point, enabling the agent to perform time-related tasks based on the progression of simulated time.
 * **Patient preferences**: `ASAP` (earliest slot), `physician` (specific physician requested), `date` (preferred date range start)
 * **Random requests**: `cancellation`, `rescheduling`
+* **Tasks**: New appointment scheduling, rescheduling, schdule cancellation
 
 &nbsp;
 
@@ -93,7 +94,7 @@ We provide optional support for integrating with FHIR, allowing the simulator to
 
 
 ## Quick Starts 🚀
-### Installation
+### 1. Installation
 ```bash
 pip install h_adminsim
 ```
@@ -104,7 +105,7 @@ print(h_adminsim.__version__)
 
 &nbsp;
 
-### Environment Variables
+### 2. Environment Variables
 Before using the LLM API, you need to provide the API key (or the required environment variables for each model) either directly or in a `.env` file.
 ```bash
 # For GPT API without Azure
@@ -116,7 +117,7 @@ GOOGLE_API_KEY=${YOUR_GEMINI_API_KEY"}
 
 &nbsp;
 
-### Simulation
+### 3. Simulation
 ```python
 from h_adminsim import AdminStaffAgent, SupervisorAgent
 from h_adminsim.pipeline import DataGenerator, Simulator
@@ -130,18 +131,13 @@ output_dir = data_generator.save_dir / 'simulation_results'
 # Intake task
 intake_task = OutpatientFirstIntake(
     patient_model='gpt-5-nano',
-    admin_staff_model='gpt-5-nano',
+    admin_staff_model='gemini-2.5-flash',
 )
 
 # Scheduling task
-admin_staff_agent = AdminStaffAgent(
-    target_task='first_outpatient_scheduling',
-    model='gpt-5-mini',
-)
 scheduling_task = OutpatientFirstScheduling(
     patient_model='gpt-5-nano',
-    scheduling_strategy='llm',
-    admin_staff_agent=admin_staff_agent,
+    admin_staff_model='gpt-5-mini',
 )
 
 # Simulation
@@ -162,7 +158,7 @@ simulator.run(
 &nbsp;
 
 ## Core Components ⚙️
-### Data synthesis
+### 1. Data synthesis
 ```python
 from h_adminsim.pipeline import DataGenerator
 
@@ -246,8 +242,8 @@ hospital_data:
 
 &nbsp;
 
-### Task Initialization
-#### 1. Patient Intake
+### 2. Task Initialization
+#### 2.1. Patient Intake
 ```python
 from h_adminsim import SupervisorAgent
 from h_adminsim.task.agent_task import OutpatientFirstIntake
@@ -266,7 +262,7 @@ intake_task = OutpatientFirstIntake(
 supervisor_agent = SupervisorAgent(
     target_task='first_outpatient_scheduling',
     model='gemini-2.5-flash',
-    api_key=${YOUR_API_KEY}  # You may set the API key here instead of using a .env file
+    api_key=${YOUR_API_KEY},  # You may set the API key here instead of using a .env file
 )
 intake_task = OutpatientFirstIntake(
     patient_model='gemini-2.5-flash',
@@ -281,20 +277,22 @@ supervisor_agent = SupervisorAgent(
     target_task='first_outpatient_scheduling',
     model='meta-llama/Llama-3.3-70B-Instruct',
     use_vllm=True,              # Use a vLLM-hosted model as the supervisor
-    vllm_endpoint='http://0.0.0.0:8000'  # vLLM server endpoint
+    vllm_endpoint='http://0.0.0.0:8000',  # vLLM server endpoint
 )
 intake_task = OutpatientFirstIntake(
-    patient_model='gpt-5-nano',
-    admin_staff_model='gpt-5',
+    patient_model='meta-llama/Llama-3.3-70B-Instruct',
+    admin_staff_model='meta-llama/Llama-3.3-70B-Instruct',
     supervisor_agent=supervisor_agent,
     intake_max_inference=5,
+    patient_vllm_endpoint='http://0.0.0.0:8000',
+    admin_staff_vllm_endpoint='http://0.0.0.0:8000',
 )
 ##############################################################
 ```
 
 &nbsp;
 
-#### 2. Appointment Scheduling
+#### 2.2. Appointment Scheduling
 ```python
 from h_adminsim import AdminStaffAgent, SupervisorAgent
 from h_adminsim.task.agent_task import OutpatientFirstScheduling
