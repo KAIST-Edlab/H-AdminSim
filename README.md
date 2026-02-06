@@ -1,15 +1,11 @@
 # H-AdminSim
 
-<!-- ---
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/patientsim)
-![PyPI Version](https://img.shields.io/pypi/v/patientsim)
-![Downloads](https://img.shields.io/pypi/dm/patientsim)
-![DOI](https://img.shields.io/badge/DOI-10.48550/arXiv.2505.17818-blue)
---- -->
-
-&nbsp;
-
-&nbsp;
+---
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/h-adminsim)
+![PyPI Version](https://img.shields.io/pypi/v/h-adminsim)
+![Downloads](https://img.shields.io/pypi/dm/h-adminsim)
+![DOI](https://img.shields.io/badge/DOI-10.48550/arXiv.2602.05407-blue)
+---
 
 ## Overview 📚
 H-AdminSim is an official Python package for simulating interactions between hospital administrative staff and first-visit outpatients using LLM agents.
@@ -17,6 +13,9 @@ It provides a standardized evaluation testbed for assessing LLM performance acro
 
 Large hospitals often handle 10,000+ outpatient encounters per day, and prior reports indicate limited specialization among administrative staff despite high workload.
 H-AdminSim is designed to help address these challenges by offering a realistic, reproducible simulation environment that supports future hospital automation and LLM-assisted administrative workflows.
+
+* Paper: https://arxiv.org/abs/2602.05407
+* PyPI Package: https://pypi.org/project/h-adminsim/
 
 &nbsp;
 
@@ -60,6 +59,7 @@ We provide optional support for integrating with FHIR, allowing the simulator to
 
 &nbsp;
 
+---
 ## Recent updates 📣
 * *December 2025 (v1.0.0)*: H-AdminSim package has been released.
 * *December 2025 (v0.7.2)*: Rule-based and tool calling-based scheduling logics have been supported.
@@ -90,7 +90,7 @@ We provide optional support for integrating with FHIR, allowing the simulator to
 
 &nbsp;
 
-
+---
 ## Quick Starts 🚀
 ### 1. Installation
 ```bash
@@ -155,6 +155,7 @@ simulator.run(
 
 &nbsp;
 
+---
 ## Components Details ⚙️
 ### 1. Data synthesis
 ```python
@@ -427,6 +428,7 @@ simulator.run(
 
 &nbsp;
 
+---
 ## Citation
 For `H-AdminSim` and `PatientSim` outpatient simulation, please cite the following.
 ```
