@@ -1,9 +1,9 @@
 # H-AdminSim
 
 ---
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/h-adminsim)
-![PyPI Version](https://img.shields.io/pypi/v/h-adminsim)
-![Downloads](https://img.shields.io/pypi/dm/h-adminsim)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/h_adminsim)
+![PyPI Version](https://img.shields.io/pypi/v/h_adminsim)
+![Downloads](https://img.shields.io/pypi/dm/h_adminsim)
 ![DOI](https://img.shields.io/badge/DOI-10.48550/arXiv.2602.05407-blue)
 ---
 
