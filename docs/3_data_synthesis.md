@@ -77,7 +77,7 @@ hospital_data:
 
 &nbsp;
 
-### 1. Synthesize Data
+### 1. Data Generation
 You can synthesize hospital data using the following command:
 ```bash
 python3 src/run/synthesize_data.py --config config/data_synthesis.yaml
@@ -85,40 +85,17 @@ python3 src/run/synthesize_data.py --config config/data_synthesis.yaml
 # If you want to check whether the generated data are compatible with the Hospital object, 
 # you can use the --sanity_check option.
 python3 src/run/synthesize_data.py --config config/data_synthesis.yaml --sanity_check
-```
 
-&nbsp;
-
-### 2. Convert the Data
-#### 2.1 Convert the Synthesized Data to FHIR Format
-You can convert the synthesized JSON data to FHIR format.
-> [!NOTE]
-> If the data synthesis is completed, an `args.yaml` file will be generated in the synthesized data folder, and this file is required.
-```bash
-# Converting command example
-python3 src/run/convert_to_fhir.py --config ${SYNTHETIC_DATA_FOLDER}/args.yaml --output_dir ${SYNTHETIC_DATA_FOLDER}/fhir_data
-
-# If you want to ensure whether the converted FHIR data is unique, you can use `--sanity_check` option
-python3 src/run/convert_to_fhir.py --config ${SYNTHETIC_DATA_FOLDER}/args.yaml --output_dir ${SYNTHETIC_DATA_FOLDER}/fhir_data --sanity_check
-```
-Supported resource types:
-> - `Practitioner`
-> - `PractitionerRole`
-> - `Patient`
-> - `Schedule`
-> - `Slot`
-> - `Appointment`
-
-&nbsp;
-
-
-#### 2.2. Convert the Synthesized Data to Agent Test Data
-You can convert the synthesized JSON data into agent testing data to test the reservation capabilities of LLMs.
-> [!NOTE]
-> If the data synthesis is completed, an `args.yaml` file will be generated in the synthesized data folder, and this file is required.
-```bash
-# Converting command example
-python3 src/run/build_agent_data.py --config ${SYNTHETIC_DATA_FOLDER}/args.yaml --output_dir ${SYNTHETIC_DATA_FOLDER}/agent_data
+# If you want to make not only synthetic data but also FHIR-converted data,
+# you can use the --convert_to_fhir option.
+# Supported resource types:
+# > `Practitioner`
+# > `PractitionerRole`
+# > `Patient`
+# > `Schedule`
+# > `Slot`
+# > `Appointment`
+python3 src/run/synthesize_data.py --config config/data_synthesis.yaml --sanity_check --convert_to_fhir
 ```
 
 &nbsp;
