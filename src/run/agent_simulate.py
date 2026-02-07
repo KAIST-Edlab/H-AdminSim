@@ -1,9 +1,8 @@
 import os
 import sys
-import random
-import numpy as np
+import logging
 from sconf import Config
-from typing import Tuple
+import patientsim.utils as pu
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, as_completed
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
@@ -11,17 +10,36 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from h_adminsim import SupervisorAgent
 from h_adminsim.task.agent_task import *
 from h_adminsim.pipeline import Simulator
-from h_adminsim.utils.filesys_utils import json_load, json_save_fast, yaml_save, get_files
+from h_adminsim.utils import set_logging, LOGGING_NAME
+from h_adminsim.utils.filesys_utils import yaml_save, get_files
 
 
 
+def bridge_patientsim():
+        main_logger = logging.getLogger(LOGGING_NAME)
+        pu.LOGGER = main_logger
+        pu.LOGGING_NAME = LOGGING_NAME
 
-def load_config(config_path):
+
+def init_worker_logging(output_dir: str, name: str):
+    pid = os.getpid()
+    set_logging(
+        LOGGING_NAME,
+        verbose=True,
+        log_file=os.path.join(output_dir, f"{name}_worker_{pid}.out")
+    )
+    bridge_patientsim()
+
+
+def load_config(config_path: str):
     config = Config(config_path)
     return config
 
 
 def simulate(config, args, single_file=None):
+    if args.logging_dir is not None:
+        init_worker_logging(args.logging_dir, config.task_model.replace('/', '_'))
+
     # Initialize tasks
     intake_task, scheduling_task = None, None
     if 'intake' in args.type:
@@ -85,11 +103,15 @@ def main(args):
     num_workers = min(getattr(args, "num_workers", os.cpu_count() or 1), len(simulation_data_files))
     if num_workers <= 1:
         try:
+            args.logging_dir = None
             simulate(config, args)
         except:
             raise
     else:
         try:
+            if args.logging_dir is None:
+                args.logging_dir = os.makedirs(os.path.join(args.output_dir, 'logs'), exist_ok=True)
+            
             with ProcessPoolExecutor(max_workers=num_workers) as ex:
                 futures = [
                     ex.submit(
@@ -115,6 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--resume', action='store_true', required=False, help='Continue the stopped processing')
     parser.add_argument('--verbose', action='store_true', required=False, help='Whether logging the each result or not')
     parser.add_argument('--num_workers', type=int, required=False, default=1, help='Whether execute the code with multi-processing or not')
+    parser.add_argument('--logging_dir', type=str, required=False, default=None, help='Directory for log files (used only in multiprocessing mode)')
     args = parser.parse_args()
 
     main(args)

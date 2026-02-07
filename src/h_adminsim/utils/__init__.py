@@ -9,7 +9,7 @@ LOGGING_NAME = f"H-AdminSim_{open(version_file_path).read().strip()}"
 VERBOSE = True
 
 
-def set_logging(name=LOGGING_NAME, verbose=True):
+def set_logging(name=LOGGING_NAME, verbose=True, log_file=None):
     """Sets up logging for the given name."""
     rank = int(os.getenv('RANK', -1))  # rank in world for Multi-GPU trainings
     level = logging.INFO if verbose and rank in {-1, 0} else logging.ERROR
@@ -27,6 +27,25 @@ def set_logging(name=LOGGING_NAME, verbose=True):
                 record.msg = colorstr("blue", record.msg)
             return super().format(record)
 
+    handlers = {
+        name: {
+            'class': 'logging.StreamHandler',
+            'formatter': name,
+            'level': level
+        }
+    }
+
+    if log_file:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        handlers[f'{name}_file'] = {
+            'class': 'logging.FileHandler',
+            'formatter': name,
+            'level': level,
+            'filename': log_file,
+            'mode': 'a',
+            'encoding': 'utf-8'
+        }
+
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': False,
@@ -36,17 +55,11 @@ def set_logging(name=LOGGING_NAME, verbose=True):
                 'format': '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
             }
         },
-        'handlers': {
-            name: {
-                'class': 'logging.StreamHandler',
-                'formatter': name,
-                'level': level
-            }
-        },
+        'handlers': handlers,
         'loggers': {
             name: {
                 'level': level,
-                'handlers': [name],
+                'handlers': list(handlers.keys()),
                 'propagate': False
             }
         }
